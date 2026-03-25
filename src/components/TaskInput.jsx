@@ -1,19 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react'
 
 function TaskInput({ onAdd }) {
+  // Текст, вводимый пользователем
   const [text, setText] = useState('')
+  // Ссылка на input для автофокуса
   const inputRef = useRef(null)
 
+  // Автофокус на input при загрузке
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
+  // Капитализация: первая буква заглавная, остальные строчные
+  const capitalize = (str) => {
+    if (!str) return ''
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+  }
+
+  // Обработка отправки формы (Enter или кнопка)
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (text.trim()) {
-      onAdd(text.trim())
-      setText('')
-      inputRef.current?.focus()
+    const trimmed = text.trim()
+    if (trimmed) {
+      const capitalized = capitalize(trimmed)
+      console.log('[Input] Submitting:', capitalized)
+      onAdd(capitalized) // Отправляем с заглавной буквой
+      setText('') // Очищаем input
+      inputRef.current?.focus() // Возвращаем фокус
     }
   }
 
