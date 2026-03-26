@@ -1,36 +1,47 @@
-import React from 'react'
+import React from "react";
 
 function Sidebar({ isOpen, onClose }) {
   const menuItems = [
-    { name: 'Tasks', icon: '📋', active: true },
-    { name: 'Schedule', icon: '📅', active: false },
-    { name: 'Notes', icon: '📝', active: false },
-  ]
+    { name: "Tasks", icon: "📋", active: true },
+    { name: "Schedule", icon: "📅", active: false },
+    { name: "Notes", icon: "📝", active: false },
+  ];
 
   return (
     <>
       {/* Overlay для мобильных */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 h-full w-60 bg-zinc-900 border-r border-zinc-800 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside
+        className={`fixed top-0 left-0 h-full w-80 bg-zinc-900 border-r border-zinc-800 z-50 transform transition-transform duration-300 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-6">
-          <h2 className="text-xl font-bold text-white mb-8">Menu</h2>
+          {/* Header с кнопкой закрытия */}
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-xl font-bold text-white">Menu</h2>
+            <button
+              onClick={onClose}
+              className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           <nav className="space-y-2">
             {menuItems.map((item) => (
               <button
                 key={item.name}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-                  item.active 
-                    ? 'bg-emerald-500/20 text-emerald-400' 
-                    : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                }`}
-              >
+                  item.active
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                }`}>
                 <span className="text-lg">{item.icon}</span>
                 <span className="font-medium">{item.name}</span>
               </button>
@@ -39,7 +50,7 @@ function Sidebar({ isOpen, onClose }) {
         </div>
       </aside>
     </>
-  )
+  );
 }
 
-export default Sidebar
+export default Sidebar;

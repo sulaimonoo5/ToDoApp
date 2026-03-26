@@ -4,45 +4,57 @@ import TaskList from "./components/TaskList";
 import Sidebar from "./components/Sidebar";
 import MenuIcon from "./icons/MenuIcon";
 
-// Ключ для хранения задач в localStorage
-const STORAGE_KEY = "todos";
+// Ключи для localStorage
+const TASKS_KEY = "todos";
+const SIDEBAR_KEY = "sidebarOpen";
 
 function App() {
   // Список задач
   const [tasks, setTasks] = useState([]);
   // Состояние sidebar (открыт/закрыт)
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // Загрузка состояния из localStorage при инициализации
+    const saved = localStorage.getItem(SIDEBAR_KEY);
+    if (saved !== null) {
+      return saved === 'true';
+    }
+    // По умолчанию: открыт на большом экране
+    return window.innerWidth >= 1024;
+  });
   // Флаг: идёт ли загрузка из localStorage
   const isLoadingRef = useRef(true);
+  // Флаг: пользователь уже взаимодействовал с toggle
+  const userInteractedRef = useRef(false);
 
-  // Определение ширины экрана
-  const [isLargeScreen, setIsLargeScreen] = useState(
-    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
-  );
-
-  // Отслеживание ширины окна
+  // Отслеживание ширины окна (только при первом рендере)
   useEffect(() => {
     const handleResize = () => {
+      // Не менять состояние если пользователь уже взаимодействовал
+      if (userInteractedRef.current) return;
+      
       const wide = window.innerWidth >= 1024;
-      setIsLargeScreen(wide);
-      // На большом экране sidebar открыт по умолчанию
-      if (wide) {
-        setSidebarOpen(true);
-      } else {
-        setSidebarOpen(false);
+      // Если localStorage пуст - применяем автологику
+      if (localStorage.getItem(SIDEBAR_KEY) === null) {
+        setSidebarOpen(wide);
       }
     };
-
-    // Установка начального состояния
-    handleResize();
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Обработчик toggle
+  const handleToggle = () => {
+    userInteractedRef.current = true;
+    const newState = !sidebarOpen;
+    setSidebarOpen(newState);
+    // Сохраняем в localStorage
+    localStorage.setItem(SIDEBAR_KEY, String(newState));
+  };
+
   // Загрузка задач из localStorage при старте
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(TASKS_KEY);
     if (stored) {
       setTasks(JSON.parse(stored));
     }
@@ -52,7 +64,7 @@ function App() {
   // Сохранение задач в localStorage при изменении
   useEffect(() => {
     if (isLoadingRef.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
   }, [tasks]);
 
   // Добавить новую задачу
@@ -105,20 +117,20 @@ function App() {
       {/* Sidebar */}
       <Sidebar 
         isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
+        onClose={handleToggle}
       />
 
       {/* Кнопка открытия меню */}
       <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
+        onClick={handleToggle}
         className="fixed top-4 left-4 z-30 p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
       >
         <MenuIcon className="w-6 h-6 text-white" />
       </button>
 
-      {/* Основной контент - сдвигается при открытом sidebar */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarOpen && isLargeScreen ? 'lg:ml-60' : ''}`}>
-        <div className={`max-w-xl mx-auto pt-16 px-6 ${sidebarOpen && !isLargeScreen ? 'ml-0' : ''}`}>
+      {/* Основной контент */}
+      <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-80' : ''}`}>
+        <div className="max-w-xl mx-auto pt-16 px-6">
           {/* Заголовок и статистика */}
           <div className="mb-6">
             <h1 className="text-4xl font-bold mb-2">Tasks</h1>
