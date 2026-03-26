@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "electron": "electron .",
-    "start": "npm run build && electron ."
+    "app": "npm run build && electron ."
   },
   "dependencies": {
     "react": "^18.2.0",

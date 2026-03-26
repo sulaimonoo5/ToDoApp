@@ -70,7 +70,7 @@ function TaskItem({
 
   return (
     <div
-      className={`group flex items-center gap-2 sm:gap-3 bg-zinc-800/70 backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-4 shadow-lg shadow-black/10 border border-zinc-700/20 overflow-hidden ${isMobile ? "" : "hover:bg-zinc-800/90 hover:scale-[1.01] hover:shadow-xl hover:shadow-black/20"} transition-all duration-200 ${isDeleting ? "opacity-0 scale-95" : "opacity-100 scale-100"} ${isDragging ? "ring-2 ring-emerald-500" : ""}`}
+      className={`group flex items-center gap-2 sm:gap-3 bg-zinc-800/70 backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-4 shadow-lg shadow-black/10 border border-zinc-700/20 overflow-hidden ${isMobile ? "" : "hover:bg-zinc-800/90 hover:scale-[1.01] hover:shadow-xl hover:shadow-black/20"} transition-all duration-200 ${isDeleting ? "opacity-0 scale-95" : "opacity-100 scale-100"} ${isDragging ? "scale-105 opacity-80 shadow-xl shadow-emerald-500/20 ring-2 ring-emerald-500" : ""}`}
       draggable={!isEditing}
       onDragStart={(e) => onDragStart(e, task.id)}
       onDragOver={onDragOver}
@@ -116,7 +116,7 @@ function TaskItem({
           onChange={(e) => setEditText(e.target.value)}
           onKeyDown={handleEditKeyDown}
           onBlur={saveEdit}
-          className="flex-1 bg-zinc-700/80 px-4 py-2 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-200"
+          className="flex-1 bg-zinc-700/80 px-4 py-2 rounded-xl text-white ring-2 ring-emerald-500 focus:outline-none transition-all duration-200"
         />
       ) : (
         <span

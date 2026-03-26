@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import TaskInput from "./components/TaskInput";
 import TaskList from "./components/TaskList";
 import Sidebar from "./components/Sidebar";
-import MenuIcon from "./icons/MenuIcon";
+import LeftIcon from "./icons/LeftIcon";
+import RightIcon from "./icons/RightIcon";
 
 // Ключи для localStorage
 const TASKS_KEY = "todos";
@@ -22,22 +23,17 @@ function App() {
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
   // Состояние sidebar (открыт/закрыт)
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    // На планшетах/мобильных - всегда закрыт
-    if (window.innerWidth < 1024) {
-      return false;
+    // На десктопе загружаем из localStorage
+    if (window.innerWidth >= 1024) {
+      const saved = localStorage.getItem(SIDEBAR_KEY);
+      if (saved !== null) {
+        return saved === 'true';
+      }
     }
-    // На десктопе - загружаем из localStorage
-    const saved = localStorage.getItem(SIDEBAR_KEY);
-    if (saved !== null) {
-      return saved === 'true';
-    }
-    // По умолчанию на десктопе: открыт
-    return true;
+    return false;
   });
   // Флаг: идёт ли загрузка из localStorage
   const isLoadingRef = useRef(true);
-  // Флаг: пользователь уже взаимодействовал с toggle
-  const userInteractedRef = useRef(false);
 
   // Отслеживание ширины окна
   useEffect(() => {
@@ -45,21 +41,9 @@ function App() {
       const desktop = window.innerWidth >= 1024;
       setIsDesktop(desktop);
       
-      // На планшетах/мобильных - всегда закрыт, без localStorage
+      // На планшетах/мобильных - всегда закрыт
       if (!desktop) {
-        userInteractedRef.current = false;
         setSidebarOpen(false);
-        return;
-      }
-      
-      // На десктопе - применяем localStorage логику
-      if (userInteractedRef.current) return;
-      
-      const saved = localStorage.getItem(SIDEBAR_KEY);
-      if (saved !== null) {
-        setSidebarOpen(saved === 'true');
-      } else {
-        setSidebarOpen(true);
       }
     };
 
@@ -69,17 +53,13 @@ function App() {
 
   // Обработчик toggle
   const handleToggle = () => {
-    // На планшетах/мобильных - просто переключаем без localStorage
-    if (!isDesktop) {
-      setSidebarOpen(!sidebarOpen);
-      return;
-    }
-    
-    // На десктопе - сохраняем в localStorage
-    userInteractedRef.current = true;
     const newState = !sidebarOpen;
     setSidebarOpen(newState);
-    localStorage.setItem(SIDEBAR_KEY, String(newState));
+    
+    // На десктопе сохраняем в localStorage
+    if (isDesktop) {
+      localStorage.setItem(SIDEBAR_KEY, String(newState));
+    }
   };
 
   // Загрузка задач из localStorage при старте
@@ -143,23 +123,20 @@ function App() {
   const progress = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
   return (
-    <div className="flex min-h-screen bg-black">
+    <div className="min-h-screen bg-black">
       {/* Sidebar */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onClose={handleToggle}
-      />
-
-      {/* Кнопка открытия меню */}
-      <button
-        onClick={handleToggle}
-        className="fixed top-4 left-4 z-30 p-2.5 bg-zinc-800/80 backdrop-blur-sm hover:bg-zinc-700 rounded-xl transition-all duration-200 border border-zinc-700/50"
-      >
-        <MenuIcon className="w-5 h-5 text-white" />
-      </button>
+      <Sidebar isOpen={sidebarOpen} onClose={handleToggle} isMobile={!isDesktop} />
 
       {/* Основной контент */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-80' : ''}`}>
+      <main className="flex-1">
+        {/* Кнопка открытия sidebar */}
+        <button
+          onClick={handleToggle}
+          className={`fixed top-4 left-4 z-50 p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 ${sidebarOpen ? '-z-10 opacity-0 pointer-events-none' : ''}`}
+        >
+          <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
+        </button>
+
         <div className="max-w-2xl mx-auto pt-20 px-4 sm:px-6 pb-32">
           {/* Заголовок и статистика */}
           <div className="mb-6 sm:mb-8">
@@ -184,6 +161,15 @@ function App() {
                   className="h-full bg-gradient-to-r from-emerald-400 to-green-600 rounded-full transition-all duration-500 shadow-lg shadow-emerald-500/20"
                   style={{ width: `${progress}%` }}
                 />
+              </div>
+            )}
+            
+            {/* Celebration message when all tasks completed */}
+            {tasks.length > 0 && completedCount === tasks.length && (
+              <div className="mt-4 text-center animate-fade-in">
+                <p className="text-emerald-400 text-sm sm:text-base font-medium">
+                  All tasks completed
+                </p>
               </div>
             )}
           </div>
