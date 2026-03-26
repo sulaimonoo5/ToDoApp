@@ -17,14 +17,26 @@ function TaskInput({ onAdd }) {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
   }
 
+  // Обработка ввода с автокапитализацией первой буквы
+  const handleChange = (e) => {
+    const value = e.target.value
+    // Капитализируем первую букву при вводе
+    const cursorPos = e.target.selectionStart
+    const capitalized = capitalize(value)
+    setText(capitalized)
+    // Возвращаем курсор на место (иначе он прыгнет в конец)
+    setTimeout(() => {
+      inputRef.current?.setSelectionRange(cursorPos, cursorPos)
+    }, 0)
+  }
+
   // Обработка отправки формы (Enter или кнопка)
   const handleSubmit = (e) => {
     e.preventDefault()
     const trimmed = text.trim()
     if (trimmed) {
-      const capitalized = capitalize(trimmed)
-      console.log('[Input] Submitting:', capitalized)
-      onAdd(capitalized) // Отправляем с заглавной буквой
+      console.log('[Input] Submitting:', trimmed)
+      onAdd(trimmed) // Уже капитализирован
       setText('') // Очищаем input
       inputRef.current?.focus() // Возвращаем фокус
     }
@@ -38,7 +50,7 @@ function TaskInput({ onAdd }) {
             ref={inputRef}
             type="text"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleChange}
             placeholder="Add a new task..."
             className="flex-1 bg-transparent px-3 py-2 text-white placeholder-zinc-500 focus:outline-none"
           />
