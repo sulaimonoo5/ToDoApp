@@ -7,12 +7,23 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile }) {
   const [dropTargetId, setDropTargetId] = useState(null)
   const dragOverId = useRef(null)
 
-  // Сортировка: невыполненные сверху, выполненные снизу
+  // Значения приоритетов
+  const priorityValues = { high: 3, medium: 2, low: 1 }
+
+  // Сортировка: невыполненные сверху, выполненные снизу + сортировка по priority
   const sortedTasks = [...tasks].sort((a, b) => {
-    // Если оба в одной группе - сохраняем порядок
-    if (a.completed === b.completed) return 0
-    // Невыполненные сверху
-    return a.completed ? 1 : -1
+    // Сначала сортируем по completed (невыполненные сверху)
+    if (a.completed !== b.completed) {
+      return a.completed ? 1 : -1
+    }
+    // Затем сортируем по priority (high > medium > low)
+    const priorityA = priorityValues[a.priority] || 1
+    const priorityB = priorityValues[b.priority] || 1
+    if (priorityA !== priorityB) {
+      return priorityB - priorityA // Большее значение (high) выше
+    }
+    // Если priority одинаковый - сохраняем порядок
+    return 0
   })
 
   // Разделяем на невыполненные и выполненные
