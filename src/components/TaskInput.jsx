@@ -35,7 +35,6 @@ function TaskInput({ onAdd }) {
     e.preventDefault()
     const trimmed = text.trim()
     if (trimmed) {
-      console.log('[Input] Submitting:', trimmed)
       onAdd(trimmed) // Уже капитализирован
       setText('') // Очищаем input
       inputRef.current?.focus() // Возвращаем фокус
@@ -43,20 +42,20 @@ function TaskInput({ onAdd }) {
   }
 
   return (
-    <div className="sticky top-4 z-10 mb-6">
+    <div className="sticky top-4 z-10 mb-4 sm:mb-6">
       <form onSubmit={handleSubmit}>
-        <div className="flex gap-2 bg-zinc-800/95 backdrop-blur-sm rounded-xl p-2 shadow-lg">
+        <div className="flex gap-2 sm:gap-3 bg-zinc-800/70 backdrop-blur-sm rounded-2xl p-1.5 sm:p-2 shadow-xl shadow-black/20 border border-zinc-700/30">
           <input
             ref={inputRef}
             type="text"
             value={text}
             onChange={handleChange}
             placeholder="Add a new task..."
-            className="flex-1 bg-transparent px-3 py-2 text-white placeholder-zinc-500 focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white placeholder-zinc-500 focus:outline-none transition-all duration-200"
           />
           <button
             type="submit"
-            className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white px-5 py-2 rounded-lg font-medium transition-all duration-200"
+            className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 active:scale-95 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base transition-all duration-200 shadow-lg shadow-emerald-500/25 flex-shrink-0"
           >
             Add
           </button>

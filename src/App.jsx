@@ -8,34 +8,58 @@ import MenuIcon from "./icons/MenuIcon";
 const TASKS_KEY = "todos";
 const SIDEBAR_KEY = "sidebarOpen";
 
+// Форматирование даты
+const formatDate = () => {
+  const date = new Date();
+  const options = { weekday: 'long', month: 'long', day: 'numeric' };
+  return date.toLocaleDateString('en-US', options);
+};
+
 function App() {
   // Список задач
   const [tasks, setTasks] = useState([]);
+  // Определение размера экрана
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
   // Состояние sidebar (открыт/закрыт)
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    // Загрузка состояния из localStorage при инициализации
+    // На планшетах/мобильных - всегда закрыт
+    if (window.innerWidth < 1024) {
+      return false;
+    }
+    // На десктопе - загружаем из localStorage
     const saved = localStorage.getItem(SIDEBAR_KEY);
     if (saved !== null) {
       return saved === 'true';
     }
-    // По умолчанию: открыт на большом экране
-    return window.innerWidth >= 1024;
+    // По умолчанию на десктопе: открыт
+    return true;
   });
   // Флаг: идёт ли загрузка из localStorage
   const isLoadingRef = useRef(true);
   // Флаг: пользователь уже взаимодействовал с toggle
   const userInteractedRef = useRef(false);
 
-  // Отслеживание ширины окна (только при первом рендере)
+  // Отслеживание ширины окна
   useEffect(() => {
     const handleResize = () => {
-      // Не менять состояние если пользователь уже взаимодействовал
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+      
+      // На планшетах/мобильных - всегда закрыт, без localStorage
+      if (!desktop) {
+        userInteractedRef.current = false;
+        setSidebarOpen(false);
+        return;
+      }
+      
+      // На десктопе - применяем localStorage логику
       if (userInteractedRef.current) return;
       
-      const wide = window.innerWidth >= 1024;
-      // Если localStorage пуст - применяем автологику
-      if (localStorage.getItem(SIDEBAR_KEY) === null) {
-        setSidebarOpen(wide);
+      const saved = localStorage.getItem(SIDEBAR_KEY);
+      if (saved !== null) {
+        setSidebarOpen(saved === 'true');
+      } else {
+        setSidebarOpen(true);
       }
     };
 
@@ -45,10 +69,16 @@ function App() {
 
   // Обработчик toggle
   const handleToggle = () => {
+    // На планшетах/мобильных - просто переключаем без localStorage
+    if (!isDesktop) {
+      setSidebarOpen(!sidebarOpen);
+      return;
+    }
+    
+    // На десктопе - сохраняем в localStorage
     userInteractedRef.current = true;
     const newState = !sidebarOpen;
     setSidebarOpen(newState);
-    // Сохраняем в localStorage
     localStorage.setItem(SIDEBAR_KEY, String(newState));
   };
 
@@ -123,26 +153,35 @@ function App() {
       {/* Кнопка открытия меню */}
       <button
         onClick={handleToggle}
-        className="fixed top-4 left-4 z-30 p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
+        className="fixed top-4 left-4 z-30 p-2.5 bg-zinc-800/80 backdrop-blur-sm hover:bg-zinc-700 rounded-xl transition-all duration-200 border border-zinc-700/50"
       >
-        <MenuIcon className="w-6 h-6 text-white" />
+        <MenuIcon className="w-5 h-5 text-white" />
       </button>
 
       {/* Основной контент */}
       <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-80' : ''}`}>
-        <div className="max-w-xl mx-auto pt-16 px-6">
+        <div className="max-w-2xl mx-auto pt-20 px-4 sm:px-6 pb-32">
           {/* Заголовок и статистика */}
-          <div className="mb-6">
-            <h1 className="text-4xl font-bold mb-2">Tasks</h1>
-            <p className="text-zinc-400 mb-3">
-              {tasks.length === 0
-                ? "No tasks yet"
-                : `${completedCount} of ${tasks.length} completed`}
-            </p>
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1">Tasks</h1>
+            <p className="text-zinc-500 text-xs sm:text-sm mb-4 sm:mb-6">{formatDate()}</p>
+            
+            {/* Разделитель */}
+            <div className="border-b border-zinc-800 mb-4 sm:mb-6" />
+            
+            {/* Прогресс */}
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-zinc-400 text-xs sm:text-sm">
+                {tasks.length === 0
+                  ? "No tasks yet"
+                  : `${completedCount} of ${tasks.length} completed`}
+              </p>
+              <p className="text-zinc-500 text-xs sm:text-sm">{Math.round(progress)}%</p>
+            </div>
             {tasks.length > 0 && (
-              <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-zinc-800/50 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-emerald-400 to-green-600 rounded-full transition-all duration-500 shadow-lg shadow-emerald-500/20"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -159,6 +198,7 @@ function App() {
             onToggle={toggleTask}
             onReorder={reorderTasks}
             onEdit={editTask}
+            isMobile={!isDesktop}
           />
         </div>
       </main>

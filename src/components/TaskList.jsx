@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import TaskItem from './TaskItem'
 
-function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit }) {
+function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile }) {
   // Состояние для отслеживания перетаскиваемого элемента
   const [draggingId, setDraggingId] = useState(null)
   const dragOverId = useRef(null)
@@ -81,6 +81,7 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit }) {
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               dragHandleProps={getDragHandleProps(task.id)}
+              isMobile={isMobile}
             />
           </div>
         ))
