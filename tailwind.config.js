@@ -13,10 +13,11 @@ module.exports = {
           750: '#2a2a2e'
         }
       },
-      // Кастомная анимация для появления задач
+      // Кастомная анимация для появления задач и модальных окон
       animation: {
         'fade-in': 'fadeIn 0.2s ease-out',
-        'slide-up': 'slideUp 0.3s ease-out'
+        'slide-up': 'slideUp 0.3s ease-out',
+        'scale-in': 'scaleIn 0.2s ease-out'
       },
       keyframes: {
         fadeIn: {
@@ -26,6 +27,10 @@ module.exports = {
         slideUp: {
           '0%': { opacity: '0', transform: 'translate(-50%, 20px)' },
           '100%': { opacity: '1', transform: 'translate(-50%, 0)' }
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' }
         }
       }
     }

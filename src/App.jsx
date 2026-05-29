@@ -99,7 +99,7 @@ function App() {
     return "Good Evening";
   };
 
-  // Закрытие dropdown и trash при клике вне их + ESC для закрытия trash
+  // Закрытие dropdown при клике вне его + ESC для закрытия trash
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -119,6 +119,18 @@ function App() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isTrashOpen]);
+
+  // Блокировка scroll заднего фона при открытом Trash
+  useEffect(() => {
+    if (isTrashOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
     };
   }, [isTrashOpen]);
 
@@ -639,11 +651,19 @@ function App() {
         </div>
       </main>
 
-      {/* Trash Modal */}
+      {/* Trash Modal — фиксированное модальное окно с блокировкой scroll фона */}
       {isTrashOpen && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="w-full max-w-md bg-zinc-900 rounded-2xl shadow-xl border border-zinc-800 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setIsTrashOpen(false)}
+        >
+          {/* Контейнер модалки — клик внутри НЕ закрывает (stopPropagation) */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-[90%] sm:w-[540px] lg:w-[620px] max-h-[80vh] sm:max-h-[70vh] bg-zinc-900 rounded-2xl shadow-2xl shadow-black/40 border border-zinc-800 flex flex-col animate-scale-in"
+          >
+            {/* Header — фиксирован сверху */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 flex-shrink-0">
               <h2 className="text-xl font-bold text-white">Trash</h2>
               <button
                 onClick={() => setIsTrashOpen(false)}
@@ -655,7 +675,8 @@ function App() {
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Список задач — ТОЛЬКО здесь внутренний скролл */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
               {trash.length === 0 ? (
                 <p className="text-zinc-500 text-center py-8">Trash is empty</p>
               ) : (
@@ -664,14 +685,14 @@ function App() {
                   const listName = lists.find(l => l.id === item.listId)?.name || 'Unknown list';
                   
                   return (
-                    <div key={item.id} className="flex items-center justify-between bg-zinc-800/50 px-4 py-3 rounded-xl">
+                    <div key={item.id} className="flex items-center justify-between bg-zinc-800/50 px-4 py-3 rounded-xl flex-shrink-0">
                       <div className="flex-1 min-w-0">
                         <p className="text-white text-sm truncate">{item.text}</p>
                         <p className="text-zinc-500 text-xs mt-1">
                           From: {listName} • {daysLeft} days left
                         </p>
                       </div>
-                      <div className="flex gap-2 ml-4">
+                      <div className="flex gap-2 ml-4 flex-shrink-0">
                         <button
                           onClick={() => restoreTask(item)}
                           className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-lg hover:bg-emerald-500/30 transition-all"
