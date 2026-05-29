@@ -1,3 +1,6 @@
+// ChevronIcon — стрелка вниз (для выпадающего меню списков)
+// Ротируется на 180° при открытом dropdown (через className rotate-180)
+
 import React from "react";
 
 function ChevronIcon({ className }) {

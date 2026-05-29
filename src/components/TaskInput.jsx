@@ -1,3 +1,7 @@
+// Компонент TaskInput — форма для создания новой задачи
+// Позволяет ввести текст задачи и выбрать приоритет (low/medium/high)
+// После добавления сбрасывает поля и возвращает фокус на input
+
 import React, { useState, useRef, useEffect } from 'react'
 
 function TaskInput({ onAdd }) {
@@ -22,7 +26,6 @@ function TaskInput({ onAdd }) {
   // Обработка ввода с автокапитализацией первой буквы
   const handleChange = (e) => {
     const value = e.target.value
-    // Капитализируем первую букву при вводе
     const cursorPos = e.target.selectionStart
     const capitalized = capitalize(value)
     setText(capitalized)
@@ -37,7 +40,9 @@ function TaskInput({ onAdd }) {
     e.preventDefault()
     const trimmed = text.trim()
     if (trimmed) {
+      // Передаём текст и приоритет в App для добавления в текущий список
       onAdd(trimmed, priority)
+      // Сбрасываем поля после добавления
       setText('')
       setPriority('low')
       inputRef.current?.focus()
@@ -64,6 +69,7 @@ function TaskInput({ onAdd }) {
               Add
             </button>
           </div>
+          {/* Селектор приоритета: три кнопки low/medium/high */}
           <div className="flex items-center gap-2 px-2">
             <span className="text-zinc-500 text-xs">Priority:</span>
             {['low', 'medium', 'high'].map((p) => (

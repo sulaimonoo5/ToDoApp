@@ -1,3 +1,9 @@
+// Главный компонент App — ядро приложения
+// Управляет всем состоянием: списки задач, корзина, поиск, фильтры, боковая панель
+// Хранит данные в localStorage и синхронизирует их при каждом изменении
+// Поток данных: App → TaskInput (добавление) → TaskList (отображение) → TaskItem (каждый элемент)
+// Удаление: задача → trash (с deletedAt) → показ Undo toast на 4 сек → если Undo → восстановление из trash
+
 import React, { useState, useEffect, useRef } from "react";
 import TaskInput from "./components/TaskInput";
 import TaskList from "./components/TaskList";
@@ -300,14 +306,17 @@ function App() {
     }
   };
 
-  // Undo удаление
+  // Undo удаление: восстанавливаем задачу в список и ОДНОВРЕМЕННО удаляем из trash
   const undoDelete = () => {
     if (recentlyDeleted) {
+      // Возвращаем задачу обратно в текущий список
       setLists(lists.map(list => 
         list.id === currentListId 
           ? { ...list, tasks: [...list.tasks, recentlyDeleted] }
           : list
       ));
+      // Удаляем задачу из корзины, чтобы не было дубликатов при открытии Trash
+      setTrash(trash.filter(t => t.id !== recentlyDeleted.id));
       if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
       setRecentlyDeleted(null);
     }

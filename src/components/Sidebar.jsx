@@ -1,8 +1,14 @@
+// Компонент Sidebar — навигационная боковая панель
+// Содержит пункты меню (Tasks, Schedule, Notes) и кнопку закрытия
+// На мобильных: открывается поверх контента с полупрозрачным overlay (клик по нему закрывает)
+// На десктопе: сдвигает контент вправо (логика в App.jsx)
+// Анимация: translate-x transition (300ms ease-in-out)
+
 import React from "react";
 import LeftIcon from "../icons/LeftIcon";
 
 function Sidebar({ isOpen, onClose }) {
-  // Пункты меню
+  // Пункты меню боковой панели (только Tasks активен, остальные — заглушки)
   const menuItems = [
     { name: "Tasks", icon: "📋", active: true },
     { name: "Schedule", icon: "📅", active: false },
@@ -11,7 +17,7 @@ function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Overlay - только на мобильных */}
+      {/* Затемнённый overlay под sidebar — только на мобильных (lg:hidden) */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -19,17 +25,16 @@ function Sidebar({ isOpen, onClose }) {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Сама боковая панель — фиксированная, 320px ширины */}
       <aside
         className={`fixed top-0 left-0 h-screen w-80 bg-zinc-900 border-r border-zinc-800 z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="py-6 px-5 h-full flex flex-col">
-          {/* Header */}
+          {/* Верхняя часть: заголовок + кнопка закрытия */}
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-xl font-bold text-white">Menu</h2>
-            {/* Кнопка закрытия sidebar */}
             <button
               onClick={onClose}
               className="p-2 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200"
@@ -38,7 +43,7 @@ function Sidebar({ isOpen, onClose }) {
             </button>
           </div>
 
-          {/* Navigation */}
+          {/* Список навигации */}
           <nav className="flex-1 space-y-2">
             {menuItems.map((item) => (
               <button
@@ -55,7 +60,7 @@ function Sidebar({ isOpen, onClose }) {
             ))}
           </nav>
 
-          {/* Footer */}
+          {/* Нижняя часть: версия приложения */}
           <div className="pt-6 border-t border-zinc-800">
             <p className="text-xs text-zinc-600">All-in-One App v1.0</p>
           </div>

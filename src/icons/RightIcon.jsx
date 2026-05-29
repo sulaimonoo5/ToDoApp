@@ -1,3 +1,6 @@
+// RightIcon — стрелка/треугольник вправо (Bootstrap icons)
+// Используется для кнопки открытия sidebar (когда он закрыт)
+
 import React from 'react'
 
 function RightIcon({ className = 'w-5 h-5' }) {

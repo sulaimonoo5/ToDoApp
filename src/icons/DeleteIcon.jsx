@@ -1,3 +1,6 @@
+// DeleteIcon — иконка корзины/удаления (Bootstrap icons)
+// Используется в TaskItem (удаление задачи) и в кнопке корзины в заголовке
+
 import React from 'react'
 
 function DeleteIcon({ className = 'w-4 h-4' }) {

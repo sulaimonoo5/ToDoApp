@@ -1,3 +1,6 @@
+// EditIcon — иконка карандаша/редактирования (Bootstrap icons)
+// Используется в TaskItem для входа в режим редактирования задачи
+
 import React from 'react'
 
 function EditIcon({ className = 'w-4 h-4' }) {

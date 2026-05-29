@@ -1,3 +1,8 @@
+// Компонент TaskItem — одна задача в списке
+// Отображает: drag handle, чекбокс выполнения, текст (или input для редактирования), кнопки Edit/Delete
+// Поддерживает: отметку выполнения, редактирование текста и приоритета, удаление с анимацией, drag & drop
+// Цвет левой границы (border-l-4) зависит от приоритета: high=emerald, medium=amber, low=zinc
+
 import React, { useState, useRef, useEffect } from "react";
 import EditIcon from "../icons/EditIcon";
 import DeleteIcon from "../icons/DeleteIcon";
@@ -11,18 +16,17 @@ function TaskItem({
   onDragStart,
   onDragOver,
   onDrop,
-  dragHandleProps,
   isMobile,
 }) {
-  // Состояние для анимации удаления
+  // Флаг анимации удаления (плавное исчезание)
   const [isDeleting, setIsDeleting] = useState(false);
-  // Состояние для режима редактирования
+  // Флаг режима редактирования (текст + приоритет)
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [editPriority, setEditPriority] = useState(task.priority);
   const editInputRef = useRef(null);
 
-  // Автофокус при входе в режим редактирования
+  // Автофокус и выделение текста при входе в режим редактирования
   useEffect(() => {
     if (isEditing) {
       editInputRef.current?.focus();
@@ -30,21 +34,20 @@ function TaskItem({
     }
   }, [isEditing]);
 
-  // Плавное удаление с анимацией
+  // Запуск анимации удаления, затем вызов onDelete через 200ms
   const handleDelete = () => {
     setIsDeleting(true);
-    // Удаляем после завершения анимации (200ms)
     setTimeout(() => onDelete(task.id), 200);
   };
 
-  // Начать редактирование
+  // Вход в режим редактирования с текущими значениями
   const startEdit = () => {
     setEditText(task.text);
     setEditPriority(task.priority);
     setIsEditing(true);
   };
 
-  // Сохранить изменения
+  // Сохранение изменений (только если текст не пустой и были реальные изменения)
   const saveEdit = () => {
     const trimmed = editText.trim();
     if (trimmed) {
@@ -56,14 +59,14 @@ function TaskItem({
     setIsEditing(false);
   };
 
-  // Отменить редактирование
+  // Отмена редактирования — возвращаем исходные значения
   const cancelEdit = () => {
     setEditText(task.text);
     setEditPriority(task.priority);
     setIsEditing(false);
   };
 
-  // Обработка Enter и Escape при редактировании
+  // Enter сохраняет, Escape отменяет
   const handleEditKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -74,7 +77,7 @@ function TaskItem({
     }
   };
 
-  // Цвет бордера в зависимости от приоритета
+  // Цвет левой границы по приоритету
   const getPriorityBorder = () => {
     switch (task.priority) {
       case 'high': return 'border-l-emerald-500';
@@ -90,39 +93,33 @@ function TaskItem({
       onDragStart={(e) => onDragStart(e, task.id)}
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, task.id)}>
-      {/* Drag handle (решётка из точек) */}
+      {/* Drag handle (решётка из 9 точек) — виден при hover на десктопе, всегда на мобильных */}
       <div
         className={`cursor-grab active:cursor-grabbing text-zinc-500 ${isMobile ? "" : "invisible group-hover:visible"} transition-all duration-200 flex-shrink-0`}
         onMouseDown={(e) => e.stopPropagation()}>
-        <svg
-          className="w-4 sm:w-5 h-4 sm:h-5"
-          fill="currentColor"
-          viewBox="0 0 24 24">
-          {/* Первая колонка */}
+        <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
           <circle cx="5" cy="6" r="1.5" />
           <circle cx="5" cy="12" r="1.5" />
           <circle cx="5" cy="18" r="1.5" />
-          {/* Вторая колонка */}
           <circle cx="12" cy="6" r="1.5" />
           <circle cx="12" cy="12" r="1.5" />
           <circle cx="12" cy="18" r="1.5" />
-          {/* Третья колонка */}
           <circle cx="19" cy="6" r="1.5" />
           <circle cx="19" cy="12" r="1.5" />
           <circle cx="19" cy="18" r="1.5" />
         </svg>
       </div>
 
-      {/* Чекбокс для отметки выполнения */}
+      {/* Чекбокс — переключает completed статус */}
       <input
         type="checkbox"
         checked={task.completed}
         onChange={() => onToggle(task.id)}
         onClick={(e) => e.stopPropagation()}
-        className={`w-5 h-5 rounded-lg border-2 border-zinc-600 bg-zinc-700/50 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer accent-emerald-500 transition-all duration-200 ${isMobile ? "" : "hover:scale-110"} checked:active:scale-90`}
+        className={`w-5 h-5 rounded-lg border-2 border-zinc-600 bg-zinc-700/50 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer accent-emerald-500 transition-all duration-200 ${isMobile ? "" : "hover:scale-110"}`}
       />
 
-      {/* Текст или input для редактирования */}
+      {/* В режиме редактирования: input + селектор приоритета + Save, иначе просто текст */}
       {isEditing ? (
         <div className="flex-1 space-y-2">
           <input
@@ -133,16 +130,14 @@ function TaskItem({
             onKeyDown={handleEditKeyDown}
             className="w-full bg-zinc-700/80 px-4 py-2 rounded-xl text-white ring-2 ring-emerald-500 focus:outline-none transition-all duration-200"
           />
+          {/* Селектор приоритета при редактировании */}
           <div className="flex items-center gap-2">
             <span className="text-zinc-500 text-xs">Priority:</span>
             {['low', 'medium', 'high'].map((p) => (
               <button
                 key={p}
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditPriority(p);
-                }}
+                onClick={(e) => { e.stopPropagation(); setEditPriority(p); }}
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-all duration-200 ${
                   editPriority === p
                     ? p === 'high' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
@@ -155,10 +150,7 @@ function TaskItem({
               </button>
             ))}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                saveEdit();
-              }}
+              onClick={(e) => { e.stopPropagation(); saveEdit(); }}
               className="ml-auto bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-medium px-3 py-0.5 rounded-lg transition-all duration-200"
             >
               Save
@@ -172,27 +164,20 @@ function TaskItem({
         </span>
       )}
 
-      {/* Кнопки действий - на мобильных всегда видны, на десктопе только при hover */}
-      <div
-        className={`flex gap-1.5 ${isMobile ? "" : "opacity-0 group-hover:opacity-100"} transition-all duration-200`}>
-        {/* Кнопка редактирования */}
+      {/* Кнопки Edit и Delete — на мобильных всегда видимы, на десктопе при hover */}
+      <div className={`flex gap-1.5 ${isMobile ? "" : "opacity-0 group-hover:opacity-100"} transition-all duration-200`}>
         {!isEditing && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              startEdit();
-            }}
-            className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-700/50 rounded-xl transition-all duration-200">
+            onClick={(e) => { e.stopPropagation(); startEdit(); }}
+            className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-700/50 rounded-xl transition-all duration-200"
+          >
             <EditIcon className="w-4 h-4" />
           </button>
         )}
-        {/* Кнопка удаления */}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDelete();
-          }}
-          className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-700/50 rounded-xl transition-all duration-200">
+          onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+          className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-700/50 rounded-xl transition-all duration-200"
+        >
           <DeleteIcon className="w-4 h-4" />
         </button>
       </div>

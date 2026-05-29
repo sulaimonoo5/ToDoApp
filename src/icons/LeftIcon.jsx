@@ -1,3 +1,6 @@
+// LeftIcon — стрелка/треугольник влево (Bootstrap icons)
+// Используется в Sidebar для кнопки закрытия панели
+
 import React from 'react'
 
 function LeftIcon({ className = 'w-5 h-5' }) {
