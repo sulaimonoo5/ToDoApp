@@ -399,12 +399,12 @@ function App() {
   const progress = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="h-screen overflow-hidden bg-black">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={handleToggle} isMobile={!isDesktop} />
 
-      {/* Основной контент */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarOpen && isDesktop ? 'ml-80' : ''}`}>
+      {/* Основной контент — flex-колонка с локальным scroll только у списка задач */}
+      <main className={`flex-1 h-full overflow-hidden transition-all duration-300 ${sidebarOpen && isDesktop ? 'ml-80' : ''}`}>
         {/* Кнопка открытия sidebar */}
         <button
           onClick={handleToggle}
@@ -413,9 +413,11 @@ function App() {
           <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
         </button>
 
-        <div className="max-w-2xl mx-auto pt-20 px-4 sm:px-6 pb-32">
+        <div className="max-w-2xl mx-auto h-full flex flex-col pt-14 sm:pt-16 px-4 sm:px-6">
+          {/* Sticky Header: заголовок → TaskInput — всегда виден, не скроллится */}
+          <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-sm flex-shrink-0 space-y-3 pb-3">
           {/* Заголовок и статистика */}
-          <div className="mb-6 sm:mb-8">
+          <div>
             {/* Переключатель списков */}
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{getGreeting()}</h1>
@@ -601,7 +603,7 @@ function App() {
           </div>
 
           {/* Поиск и фильтры */}
-          <div className="mb-4 space-y-3">
+          <div className="space-y-3">
             <input
               type="text"
               value={searchQuery}
@@ -628,27 +630,33 @@ function App() {
 
           {/* Поле ввода новой задачи */}
           <TaskInput onAdd={addTask} />
-
-          {/* Фильтрованные задачи */}
-          {(() => {
-            let filtered = tasks;
-            if (searchQuery) {
-              filtered = filtered.filter(t => t.text.toLowerCase().includes(searchQuery.toLowerCase()));
-            }
-            if (filter === 'active') filtered = filtered.filter(t => !t.completed);
-            if (filter === 'completed') filtered = filtered.filter(t => t.completed);
-            return (
-              <TaskList 
-                tasks={filtered} 
-                onDelete={deleteTask} 
-                onToggle={toggleTask}
-                onReorder={reorderTasks}
-                onEdit={editTask}
-                isMobile={!isDesktop}
-              />
-            );
-          })()}
         </div>
+
+        {/* Scrollable список задач — занимает всё оставшееся место, scroll только здесь */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 pb-4">
+          <div className="max-w-2xl mx-auto">
+            {/* Фильтрованные задачи */}
+            {(() => {
+              let filtered = tasks;
+              if (searchQuery) {
+                filtered = filtered.filter(t => t.text.toLowerCase().includes(searchQuery.toLowerCase()));
+              }
+              if (filter === 'active') filtered = filtered.filter(t => !t.completed);
+              if (filter === 'completed') filtered = filtered.filter(t => t.completed);
+              return (
+                <TaskList 
+                  tasks={filtered} 
+                  onDelete={deleteTask} 
+                  onToggle={toggleTask}
+                  onReorder={reorderTasks}
+                  onEdit={editTask}
+                  isMobile={!isDesktop}
+                />
+              );
+            })()}
+          </div>
+        </div>
+      </div>
       </main>
 
       {/* Trash Modal — фиксированное модальное окно с блокировкой scroll фона */}

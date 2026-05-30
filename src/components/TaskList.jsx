@@ -84,7 +84,7 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile }) {
   }
 
   return (
-    <div className="max-h-[calc(100vh-280px)] overflow-y-auto scroll-smooth space-y-2 pb-4">
+    <div className="space-y-2 pb-4">
       {/* Пустое состояние — пока нет ни одной задачи */}
       {tasks.length === 0 ? (
         <p className="text-zinc-500 text-center py-16 opacity-60 animate-pulse">No tasks yet</p>
