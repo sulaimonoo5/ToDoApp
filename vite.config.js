@@ -17,7 +17,7 @@ export default defineConfig({
         theme_color: "#000000",
         orientation: "portrait",
         description:
-          "A simple and powerful To-Do application to manage your daily tasks.", // Добавлено для Richer Install UI
+          "A simple and powerful To-Do application to manage your daily tasks.",
         icons: [
           {
             src: "/icon-192.png",
@@ -30,17 +30,16 @@ export default defineConfig({
             type: "image/png",
           },
         ],
-        // Добавлен массив скриншотов
         screenshots: [
           {
-            src: "/screenshot-desktop.png", // Путь к скриншоту в папке public
+            src: "/screenshot-desktop.png",
             sizes: "1280x720",
             type: "image/png",
             form_factor: "wide",
             label: "Desktop view of To-Do App",
           },
           {
-            src: "/screenshot-mobile.png", // Путь к скриншоту в папке public
+            src: "/screenshot-mobile.png",
             sizes: "390x844",
             type: "image/png",
             form_factor: "narrow",

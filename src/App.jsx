@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from "react";
 import TaskInput from "./components/TaskInput";
 import TaskList from "./components/TaskList";
 import Sidebar from "./components/Sidebar";
+import Schedule from "./components/Schedule";
 import LeftIcon from "./icons/LeftIcon";
 import RightIcon from "./icons/RightIcon";
 import ChevronIcon from "./icons/ChevronIcon";
@@ -77,10 +78,13 @@ function App() {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   // Состояние sidebar (открыт/закрыт)
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Текущая страница: "tasks" | "schedule"
+  const [currentPage, setCurrentPage] = useState("tasks");
   // Флаг: идёт ли загрузка из localStorage
   const isLoadingRef = useRef(true);
   // Ref для dropdown
   const dropdownRef = useRef(null);
+  // Текущая страница: 'tasks' | 'schedule'
 
   // Текущие задачи
   const tasks = getTasksFromLists(lists, currentListId);
@@ -441,6 +445,8 @@ function App() {
         isOpen={sidebarOpen}
         onClose={handleToggle}
         isMobile={!isDesktop}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
       />
 
       {/* Основной контент — flex-колонка с локальным scroll только у списка задач */}
@@ -453,9 +459,11 @@ function App() {
           <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
         </button>
 
-        <div className="max-w-2xl mx-auto h-full flex flex-col pt-14 sm:pt-16 px-4 sm:px-6">
-          {/* Sticky Header: заголовок → TaskInput — всегда виден, не скроллится */}
-          <div className="sticky top-0 z-10 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0 space-y-3 pb-3">
+        {currentPage === "tasks" ? (
+          <>
+          <div className="max-w-2xl mx-auto h-full flex flex-col pt-14 sm:pt-16 px-4 sm:px-6">
+            {/* Sticky Header: заголовок → TaskInput — всегда виден, не скроллится */}
+            <div className="sticky top-0 z-10 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0 space-y-3 pb-3">
             {/* Заголовок и статистика */}
             <div>
               {/* Переключатель списков */}
@@ -700,9 +708,9 @@ function App() {
                     <p className="text-emerald-400 text-sm font-medium">
                       All tasks completed
                     </p>
-                  </div>
-                </div>
-              )}
+          </div>
+        </div>
+      )}
             </div>
 
             {/* Поиск и фильтры */}
@@ -761,6 +769,10 @@ function App() {
             })()}
           </div>
         </div>
+          </>
+        ) : (
+          <Schedule />
+        )}
       </main>
 
       {/* Trash Modal — фиксированное модальное окно с блокировкой scroll фона */}
@@ -835,9 +847,9 @@ function App() {
                   );
                 })
               )}
-            </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* Undo Toast */}

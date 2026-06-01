@@ -1,19 +1,24 @@
 // Компонент Sidebar — навигационная боковая панель
-// Содержит пункты меню (Tasks, Schedule, Notes) и кнопку закрытия
+// Содержит пункты меню (Tasks, Schedule) и кнопку закрытия
+// Принимает currentPage и onPageChange для переключения между страницами
 // На мобильных: открывается поверх контента с полупрозрачным overlay (клик по нему закрывает)
-// На десктопе: сдвигает контент вправо (логика в App.jsx)
 // Анимация: translate-x transition (300ms ease-in-out)
 
 import React from "react";
 import LeftIcon from "../icons/LeftIcon";
 
-function Sidebar({ isOpen, onClose }) {
-  // Пункты меню боковой панели (только Tasks активен, остальные — заглушки)
+function Sidebar({ isOpen, onClose, currentPage, onPageChange }) {
+  // Пункты меню боковой панели
   const menuItems = [
-    { name: "Tasks", icon: "📋", active: true },
-    { name: "Schedule", icon: "📅", active: false },
-    { name: "Notes", icon: "📝", active: false },
+    { name: "Tasks", icon: "📋", page: "tasks" },
+    { name: "Schedule", icon: "📅", page: "schedule" },
   ];
+
+  // Обработчик клика: переключает страницу и закрывает sidebar на мобильных
+  const handleClick = (page) => {
+    onPageChange(page);
+    onClose();
+  };
 
   return (
     <>
@@ -47,9 +52,10 @@ function Sidebar({ isOpen, onClose }) {
           <nav className="flex-1 space-y-2">
             {menuItems.map((item) => (
               <button
-                key={item.name}
+                key={item.page}
+                onClick={() => handleClick(item.page)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  item.active
+                  currentPage === item.page
                     ? "bg-emerald-500/20 text-emerald-400 border-l-2 border-emerald-500"
                     : "text-zinc-400 hover:bg-zinc-800 hover:text-white hover:translate-x-1"
                 }`}
