@@ -99,20 +99,12 @@ function Schedule() {
         <p className="text-sm text-zinc-500 mt-1.5">Plan your weekly lessons — click any cell to add a subject</p>
       </div>
 
-      {/* Empty state — когда нет ни одного урока */}
-      {!hasAnyLesson ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center animate-fade-in">
-            <div className="text-5xl mb-4 opacity-60">📚</div>
-            <h3 className="text-lg font-semibold text-zinc-300 mb-1">No lessons yet</h3>
-            <p className="text-sm text-zinc-500">Click any cell to add a subject</p>
-          </div>
-        </div>
-      ) : (
-        /* Scroll контейнер — вся прокрутка только здесь */
-        <div className="flex-1 overflow-auto min-h-0 rounded-xl border border-zinc-800/40 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80 backdrop-blur-sm">
-          {/* Сетка расписания с gap-px для линий сетки */}
-          <div className="grid grid-cols-[56px_repeat(6,1fr)] gap-px bg-zinc-800/20 min-w-[720px]">
+      {/* Grid контейнер — всегда отображается, содержит сетку и overlay empty state */}
+      <div className="flex-1 relative min-h-0 rounded-xl border border-zinc-800/40 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80 backdrop-blur-sm overflow-hidden">
+        {/* Scroll контейнер — вся прокрутка (X + Y) только здесь, mobile responsive fix: overflow-x-auto */}
+        <div className="absolute inset-0 overflow-auto rounded-xl">
+          {/* Сетка расписания с gap-px для линий сетки — grid always visible */}
+          <div className="grid grid-cols-[56px_repeat(6,1fr)] gap-px bg-zinc-800/20 min-w-[900px]">
 
             {/* Corner cell — sticky top + left */}
             <div className="sticky top-0 left-0 z-30 h-10 bg-zinc-950 rounded-tl-xl" />
@@ -194,7 +186,18 @@ function Schedule() {
             ))}
           </div>
         </div>
-      )}
+
+        {/* Empty state overlay — поверх grid, pointer-events-none чтобы не блокировать клики по ячейкам */}
+        {!hasAnyLesson && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div className="text-center bg-zinc-950/50 backdrop-blur-[2px] px-8 py-6 rounded-2xl border border-zinc-800/30 animate-fade-in">
+              <div className="text-5xl mb-4 opacity-60">📚</div>
+              <h3 className="text-lg font-semibold text-zinc-300 mb-1">No lessons yet</h3>
+              <p className="text-sm text-zinc-500">Click any cell to add a subject</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Модальное окно — без изменений */}
       {isModalOpen && (
