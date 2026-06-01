@@ -1,6 +1,7 @@
 // Расписание занятий (Study Planner)
 // Таблица: строки = пары (1-14), колонки = дни (Пн-Сб)
 // Клик по ячейке → модалка добавления/редактирования
+// Drag & Drop между ячейками
 // localStorage ключ: scheduleData
 
 import React, { useState, useEffect } from "react";
@@ -21,11 +22,14 @@ const COLOR_MAP = {
 };
 
 function Schedule() {
-  // data[dayIndex][lessonIndex] = { name, teacher, room, notes, color }
   const [data, setData] = useState({});
   const [selectedCell, setSelectedCell] = useState(null);
   const [form, setForm] = useState({ name: "", teacher: "", room: "", notes: "", color: "emerald" });
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Drag & Drop state
+  const [dragSource, setDragSource] = useState(null);
+  const [dragTarget, setDragTarget] = useState(null);
 
   useEffect(() => {
     try {
@@ -38,11 +42,27 @@ function Schedule() {
     localStorage.setItem("scheduleData", JSON.stringify(data));
   }, [data]);
 
-  // Определяем текущий день для подсветки (0=Mon, 5=Sat, -1=weekend)
+  // ESC close modal + body scroll lock
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e) => {
+        if (e.key === "Escape") {
+          setIsModalOpen(false);
+          setSelectedCell(null);
+        }
+      };
+      document.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = "";
+        document.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [isModalOpen]);
+
   const today = new Date().getDay();
   const currentDayIndex = today >= 1 && today <= 6 ? today - 1 : -1;
 
-  // Есть ли хотя бы один урок в расписании
   const hasAnyLesson = Object.values(data).some((day) => day && Object.keys(day).length > 0);
 
   const openModal = (day, lesson) => {
@@ -90,24 +110,73 @@ function Schedule() {
 
   const getLesson = (day, lesson) => data[day]?.[lesson];
 
+  // Drag & Drop handlers
+  const handleDragStart = (day, lesson, e) => {
+    setDragSource({ day, lesson });
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", `${day}-${lesson}`);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (targetDay, targetLesson, e) => {
+    e.preventDefault();
+    if (!dragSource) return;
+    const { day: srcDay, lesson: srcLesson } = dragSource;
+    if (srcDay === targetDay && srcLesson === targetLesson) {
+      setDragSource(null);
+      setDragTarget(null);
+      return;
+    }
+    setData((prev) => {
+      const newData = JSON.parse(JSON.stringify(prev));
+      const sourceData = newData[srcDay]?.[srcLesson];
+      if (!sourceData) return prev;
+      delete newData[srcDay][srcLesson];
+      if (newData[srcDay] && Object.keys(newData[srcDay]).length === 0) {
+        delete newData[srcDay];
+      }
+      newData[targetDay] = {
+        ...(newData[targetDay] || {}),
+        [targetLesson]: sourceData,
+      };
+      return newData;
+    });
+    setDragSource(null);
+    setDragTarget(null);
+  };
+
+  const isDragTarget = (day, lesson) =>
+    dragTarget && dragTarget.day === day && dragTarget.lesson === lesson;
+
+  const isDragSource = (day, lesson) =>
+    dragSource && dragSource.day === day && dragSource.lesson === lesson;
+
+  const handleDragEnd = () => {
+    setDragSource(null);
+    setDragTarget(null);
+  };
+
   return (
-    // Анимация появления страницы: opacity 0→1, translateY 10→0
     <div className="flex flex-col h-full animate-fade-in pt-8 px-4 sm:px-6 max-w-5xl mx-auto w-full">
-      {/* Header секция */}
+      {/* Header */}
       <div className="flex-shrink-0 mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-white">Study Schedule</h1>
         <p className="text-sm text-zinc-500 mt-1.5">Plan your weekly lessons — click any cell to add a subject</p>
       </div>
 
-      {/* Grid контейнер — всегда отображается, содержит сетку и overlay empty state */}
+      {/* Grid контейнер */}
       <div className="flex-1 relative min-h-0 rounded-xl border border-zinc-800/40 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80 backdrop-blur-sm overflow-hidden">
-        {/* Scroll контейнер — вся прокрутка (X + Y) только здесь, mobile responsive fix: overflow-x-auto */}
+        {/* Scroll контейнер */}
         <div className="absolute inset-0 overflow-auto rounded-xl">
-          {/* Сетка расписания с gap-px для линий сетки — grid always visible */}
+          {/* Сетка расписания — grid always visible */}
           <div className="grid grid-cols-[56px_repeat(6,1fr)] gap-px bg-zinc-800/20 min-w-[900px]">
 
             {/* Corner cell — sticky top + left */}
-            <div className="sticky top-0 left-0 z-30 h-10 bg-zinc-950 rounded-tl-xl" />
+            <div className="sticky top-0 left-0 z-30 h-12 bg-zinc-950 rounded-tl-xl" />
 
             {/* Header дней недели — sticky top */}
             {DAYS.map((day, i) => {
@@ -115,7 +184,7 @@ function Schedule() {
               return (
                 <div
                   key={day}
-                  className={`sticky top-0 z-20 h-10 flex items-center justify-center text-sm font-semibold transition-colors duration-200
+                  className={`sticky top-0 z-20 h-12 flex items-center justify-center text-sm font-semibold transition-colors duration-200
                     ${isToday
                       ? "text-emerald-300 bg-emerald-500/8 border-b-2 border-emerald-500/40"
                       : "text-zinc-400 bg-zinc-950 border-b border-zinc-800/50"
@@ -129,54 +198,69 @@ function Schedule() {
             {/* Строки расписания */}
             {LESSONS.map((lesson) => (
               <React.Fragment key={lesson}>
-                {/* Номер пары — sticky left */}
-                <div className="sticky left-0 z-10 flex items-center justify-center h-14 bg-zinc-950 text-xs text-zinc-500 font-mono border-b border-zinc-800/30">
+                {/* Номер пары — sticky left, responsive cell sizing */}
+                <div className="sticky left-0 z-10 flex items-center justify-center h-[72px] bg-zinc-950 text-xs text-zinc-500 font-mono border-b border-zinc-800/30">
                   {lesson}
                 </div>
 
-                {/* Ячейки по дням */}
+                {/* Ячейки по дням с drag & drop поддержкой */}
                 {DAYS.map((_, dayIdx) => {
                   const lessonData = getLesson(dayIdx, lesson);
+                  const isOver = isDragTarget(dayIdx, lesson);
+                  const isDragging = isDragSource(dayIdx, lesson);
                   return (
                     <button
                       key={`${lesson}-${dayIdx}`}
                       onClick={() => openModal(dayIdx, lesson)}
+                      draggable={!!lessonData}
+                      onDragStart={lessonData ? (e) => handleDragStart(dayIdx, lesson, e) : undefined}
+                      onDragOver={handleDragOver}
+                      onDragEnter={() => setDragTarget({ day: dayIdx, lesson })}
+                      onDragLeave={() => setDragTarget(null)}
+                      onDrop={(e) => handleDrop(dayIdx, lesson, e)}
+                      onDragEnd={handleDragEnd}
                       className={`
-                        relative group min-h-[56px] bg-zinc-950/80 p-2 text-left
+                        relative group min-h-[72px] bg-zinc-950/80 p-3 text-left
                         border-b border-r border-zinc-800/25
                         transition-all duration-150
                         ${lessonData
                           ? "hover:bg-zinc-900 hover:border-emerald-500/40 hover:shadow-[0_0_12px_rgba(16,185,129,0.12)] hover:scale-[1.02] hover:z-10"
                           : "hover:bg-zinc-900/60 hover:border-emerald-500/25 hover:shadow-[0_0_8px_rgba(16,185,129,0.08)] hover:scale-[1.02] hover:z-10"
                         }
+                        ${isOver
+                          ? "ring-2 ring-emerald-500/50 bg-emerald-500/5 border-emerald-500/60 scale-[1.02] z-10"
+                          : ""
+                        }
+                        ${isDragging
+                          ? "opacity-30 scale-[0.97]"
+                          : ""
+                        }
                       `}
                     >
                       {lessonData ? (
                         <>
-                          {/* Цветовая акцентная полоска слева — вместо полной заливки */}
-                          <div className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm ${COLOR_MAP[lessonData.color]?.accent || "bg-emerald-500/70"}`} />
+                          {/* Цветовая акцентная полоска слева */}
+                          <div className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-sm ${COLOR_MAP[lessonData.color]?.accent || "bg-emerald-500/70"}`} />
 
-                          <div className="pl-2.5">
-                            <div className={`text-xs font-semibold leading-tight ${COLOR_MAP[lessonData.color]?.text || "text-white"}`}>
+                          <div className="pl-3">
+                            <div className={`text-sm font-semibold leading-tight ${COLOR_MAP[lessonData.color]?.text || "text-white"}`}>
                               {lessonData.name}
                             </div>
                             {lessonData.room && (
-                              <div className="text-[10px] text-zinc-500 mt-0.5">{lessonData.room}</div>
+                              <div className="text-xs text-zinc-500 mt-0.5">{lessonData.room}</div>
                             )}
                             {lessonData.teacher && (
-                              <div className="text-[10px] text-zinc-600 truncate">{lessonData.teacher}</div>
+                              <div className="text-xs text-zinc-600 truncate">{lessonData.teacher}</div>
                             )}
                           </div>
 
                           {/* Иконка редактирования при hover */}
-                          <div className="absolute top-1 right-1 text-[10px] text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity duration-150">✏️</div>
+                          <div className="absolute top-1 right-1 text-xs text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity duration-150">✏️</div>
                         </>
                       ) : (
-                        /* Пустая ячейка — "+" появляется при hover */
+                        /* Пустая ячейка — "+" при hover */
                         <div className="flex items-center justify-center h-full">
-                          <span className="text-zinc-600 text-base opacity-0 group-hover:opacity-60 transition-opacity duration-200">
-                            +
-                          </span>
+                          <span className="text-zinc-600 text-base opacity-0 group-hover:opacity-60 transition-opacity duration-200">+</span>
                         </div>
                       )}
                     </button>
@@ -187,7 +271,7 @@ function Schedule() {
           </div>
         </div>
 
-        {/* Empty state overlay — поверх grid, pointer-events-none чтобы не блокировать клики по ячейкам */}
+        {/* Empty state overlay — pointer-events-none для кликов сквозь */}
         {!hasAnyLesson && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <div className="text-center bg-zinc-950/50 backdrop-blur-[2px] px-8 py-6 rounded-2xl border border-zinc-800/30 animate-fade-in">
@@ -199,11 +283,11 @@ function Schedule() {
         )}
       </div>
 
-      {/* Модальное окно — без изменений */}
+      {/* Модальное окно */}
       {isModalOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setIsModalOpen(false)}
+          onClick={() => { setIsModalOpen(false); setSelectedCell(null); }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -280,14 +364,15 @@ function Schedule() {
               </button>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => { setIsModalOpen(false); setSelectedCell(null); }}
                   className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:bg-zinc-800 transition-all"
                 >
                   Cancel
                 </button>
+                {/* Save button — emerald gradient в стиле главной кнопки Add */}
                 <button
                   onClick={handleSave}
-                  className="px-5 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-400 active:scale-95 transition-all"
+                  className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 hover:scale-105 hover:shadow-emerald-500/40 active:scale-95 text-white px-5 py-2 rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-emerald-500/25"
                 >
                   Save
                 </button>
