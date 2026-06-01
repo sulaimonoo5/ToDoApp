@@ -64,7 +64,7 @@ function TaskInput({ onAdd }) {
             />
             <button
               type="submit"
-              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 active:scale-95 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base transition-all duration-200 shadow-lg shadow-emerald-500/25 flex-shrink-0"
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 hover:scale-105 hover:shadow-emerald-500/40 active:scale-95 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base transition-all duration-150 shadow-lg shadow-emerald-500/25 flex-shrink-0"
             >
               Add
             </button>

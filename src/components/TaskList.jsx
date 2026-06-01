@@ -85,9 +85,15 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile }) {
 
   return (
     <div className="space-y-2 pb-4">
-      {/* Пустое состояние — пока нет ни одной задачи */}
+      {/* Пустое состояние — иконка + подсказка */}
       {tasks.length === 0 ? (
-        <p className="text-zinc-500 text-center py-16 opacity-60 animate-pulse">No tasks yet</p>
+        <div className="flex flex-col items-center justify-center py-20 animate-fade-in select-none">
+          <svg className="w-12 h-12 text-zinc-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+          <p className="text-zinc-500 text-sm font-medium">Nothing here yet</p>
+          <p className="text-zinc-600 text-xs mt-1.5">Start by creating your first task</p>
+        </div>
       ) : (
         <>
           {/* Секция невыполненных задач */}
@@ -120,9 +126,9 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile }) {
             </div>
           )}
 
-          {/* Секция выполненных задач (с пониженной непрозрачностью) */}
+          {/* Секция выполненных задач (плавный стиль, без исчезновения) */}
           {completedTasks.map((task) => (
-            <div key={task.id} className="animate-fade-in opacity-60">
+            <div key={task.id} className="animate-fade-in">
               {/* Индикатор сброса и для выполненной секции */}
               {draggingId && dropTargetId === task.id && (
                 <div className="h-1 bg-emerald-500 rounded-full mb-2 shadow-lg shadow-emerald-500/50" />

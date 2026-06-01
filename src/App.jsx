@@ -58,6 +58,7 @@ function App() {
   // Создание нового списка (input)
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [newListError, setNewListError] = useState('');
   // Редактирование списка
   const [editingListId, setEditingListId] = useState(null);
   const [editingListName, setEditingListName] = useState('');
@@ -105,6 +106,7 @@ function App() {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsListDropdownOpen(false);
         setIsCreatingList(false);
+        setNewListError('');
       }
     };
     
@@ -225,14 +227,17 @@ function App() {
 
   // Создать новый список
   const createList = () => {
-    if (newListName.trim()) {
-      const newList = createNewList(newListName);
-      setLists([...lists, newList]);
-      setCurrentListId(newList.id);
-      setNewListName('');
-      setIsCreatingList(false);
-      setIsListDropdownOpen(false);
+    if (!newListName.trim()) {
+      setNewListError('Please enter a list name');
+      return;
     }
+    const newList = createNewList(newListName);
+    setLists([...lists, newList]);
+    setCurrentListId(newList.id);
+    setNewListName('');
+    setNewListError('');
+    setIsCreatingList(false);
+    setIsListDropdownOpen(false);
   };
 
   // Переключиться на список
@@ -415,7 +420,7 @@ function App() {
 
         <div className="max-w-2xl mx-auto h-full flex flex-col pt-14 sm:pt-16 px-4 sm:px-6">
           {/* Sticky Header: заголовок → TaskInput — всегда виден, не скроллится */}
-          <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-sm flex-shrink-0 space-y-3 pb-3">
+          <div className="sticky top-0 z-10 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0 space-y-3 pb-3">
           {/* Заголовок и статистика */}
           <div>
             {/* Переключатель списков */}
@@ -508,18 +513,27 @@ function App() {
                           <input
                             type="text"
                             value={newListName}
-                            onChange={(e) => setNewListName(e.target.value.slice(0, 25))}
+                            onChange={(e) => {
+                              setNewListName(e.target.value.slice(0, 25));
+                              if (newListError) setNewListError('');
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') createList();
                               if (e.key === 'Escape') {
                                 setIsCreatingList(false);
                                 setNewListName('');
+                                setNewListError('');
                               }
                             }}
                             placeholder="List name..."
                             autoFocus
-                            className="w-full bg-zinc-700/50 px-3 py-2 rounded-lg text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                            className={`w-full bg-zinc-700/50 px-3 py-2 rounded-lg text-white text-sm placeholder-zinc-500 focus:outline-none transition-all duration-200 ${
+                              newListError ? 'ring-2 ring-red-500/60' : 'focus:ring-2 focus:ring-emerald-500/50'
+                            }`}
                           />
+                          {newListError && (
+                            <p className="text-red-400 text-xs mt-1.5 animate-fade-in">{newListError}</p>
+                          )}
                           <div className="flex gap-2 mt-2">
                             <button
                               onClick={createList}
@@ -531,6 +545,7 @@ function App() {
                               onClick={() => {
                                 setIsCreatingList(false);
                                 setNewListName('');
+                                setNewListError('');
                               }}
                               className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs font-medium py-1.5 rounded-lg transition-all duration-200"
                             >
@@ -540,7 +555,7 @@ function App() {
                         </div>
                       ) : (
                         <button
-                          onClick={() => setIsCreatingList(true)}
+                          onClick={() => { setIsCreatingList(true); setNewListError(''); }}
                           className="w-full text-left px-4 py-2.5 text-sm text-emerald-400 hover:bg-zinc-700 transition-all duration-200"
                         >
                           + Create new list
@@ -592,12 +607,17 @@ function App() {
               </div>
             )}
             
-            {/* Celebration message when all tasks completed */}
+            {/* 100% completed — checkmark + glow */}
             {tasks.length > 0 && completedCount === tasks.length && (
               <div className="mt-4 text-center animate-fade-in">
-                <p className="text-emerald-400 text-sm sm:text-base font-medium">
-                  All tasks completed
-                </p>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-emerald-400 text-sm font-medium">
+                    All tasks completed
+                  </p>
+                </div>
               </div>
             )}
           </div>

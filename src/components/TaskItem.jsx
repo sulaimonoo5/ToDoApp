@@ -159,7 +159,7 @@ function TaskItem({
         </div>
       ) : (
         <span
-          className={`flex-1 cursor-grab transition-all duration-200 ${task.completed ? "line-through text-zinc-500 opacity-50" : "text-white"}`}>
+          className={`flex-1 cursor-grab transition-all duration-200 ${task.completed ? "line-through text-zinc-400 opacity-60" : "text-white"}`}>
           {task.text}
         </span>
       )}
