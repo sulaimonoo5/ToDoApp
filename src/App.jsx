@@ -480,10 +480,7 @@ function App() {
     <div className="h-screen overflow-hidden bg-black">
       {/* WelcomeScreen — только при полном запуске, не при переключении страниц */}
       {showWelcome && (
-        <WelcomeScreen
-          tasks={tasks}
-          onComplete={() => setShowWelcome(false)}
-        />
+        <WelcomeScreen onComplete={() => setShowWelcome(false)} />
       )}
 
       {/* Sidebar */}
