@@ -1,14 +1,14 @@
 // Расписание занятий (Study Planner)
-// Таблица: строки = пары (1-14), колонки = дни (Пн-Сб)
+// Таблица: строки = пары (1-12), колонки = дни (Пн-Сб)
 // Клик по ячейке → модалка добавления/редактирования
 // Drag & Drop между ячейками
 // localStorage ключ: scheduleData
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import RightIcon from "../icons/RightIcon";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const LESSONS = Array.from({ length: 14 }, (_, i) => i + 1);
+const LESSONS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 const COLORS = ["emerald", "blue", "amber", "purple", "red", "pink", "cyan", "orange"];
 const COLOR_MAP = {
@@ -31,6 +31,11 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   // Drag & Drop state
   const [dragSource, setDragSource] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
+
+  // Анимации создания/удаления ячеек
+  const [newCells, setNewCells] = useState(new Set());
+  const [deletingCells, setDeletingCells] = useState(new Set());
+  const animTimeoutRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -64,7 +69,17 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   const today = new Date().getDay();
   const currentDayIndex = today >= 1 && today <= 6 ? today - 1 : -1;
 
-  const hasAnyLesson = Object.values(data).some((day) => day && Object.keys(day).length > 0);
+  // Статистика расписания
+  const totalLessons = Object.values(data).reduce(
+    (sum, day) => sum + (day ? Object.keys(day).length : 0), 0
+  );
+  const dayCounts = DAYS.map((_, i) => (data[i] ? Object.keys(data[i]).length : 0));
+  const maxCount = Math.max(...dayCounts);
+  const busiestDay = maxCount > 0 ? DAYS[dayCounts.indexOf(maxCount)] : "—";
+  const totalSlots = LESSONS.length * DAYS.length;
+  const freeSlots = totalSlots - totalLessons;
+
+  const hasAnyLesson = totalLessons > 0;
 
   const openModal = (day, lesson) => {
     const existing = data[day]?.[lesson];
@@ -79,6 +94,8 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
 
   const handleSave = () => {
     if (!form.name.trim()) return;
+    const isNew = !data[selectedCell.day]?.[selectedCell.lesson];
+
     setData((prev) => ({
       ...prev,
       [selectedCell.day]: {
@@ -86,25 +103,52 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
         [selectedCell.lesson]: { ...form, name: form.name.trim() },
       },
     }));
+
+    // Анимация создания: добавляем в newCells, убираем через 300ms
+    if (isNew) {
+      const key = `${selectedCell.day}-${selectedCell.lesson}`;
+      setNewCells((prev) => new Set(prev).add(key));
+      setTimeout(() => {
+        setNewCells((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }, 300);
+    }
+
     setIsModalOpen(false);
     setSelectedCell(null);
   };
 
   const handleDelete = () => {
     if (!selectedCell) return;
-    setData((prev) => {
-      const newData = { ...prev };
-      if (newData[selectedCell.day]) {
-        const newDay = { ...newData[selectedCell.day] };
-        delete newDay[selectedCell.lesson];
-        if (Object.keys(newDay).length === 0) {
-          delete newData[selectedCell.day];
-        } else {
-          newData[selectedCell.day] = newDay;
+    const key = `${selectedCell.day}-${selectedCell.lesson}`;
+
+    // Анимация удаления: добавляем в deletingCells, удаляем данные через 200ms
+    setDeletingCells((prev) => new Set(prev).add(key));
+
+    setTimeout(() => {
+      setData((prev) => {
+        const newData = { ...prev };
+        if (newData[selectedCell.day]) {
+          const newDay = { ...newData[selectedCell.day] };
+          delete newDay[selectedCell.lesson];
+          if (Object.keys(newDay).length === 0) {
+            delete newData[selectedCell.day];
+          } else {
+            newData[selectedCell.day] = newDay;
+          }
         }
-      }
-      return newData;
-    });
+        return newData;
+      });
+      setDeletingCells((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }, 200);
+
     setIsModalOpen(false);
     setSelectedCell(null);
   };
@@ -163,8 +207,8 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
 
   return (
     <div className="flex flex-col h-full animate-fade-in px-4 sm:px-6 max-w-5xl mx-auto w-full">
-      {/* Schedule header layout — sidebar toggle + title + subtitle, NOT fixed */}
-      <div className="flex-shrink-0 flex items-start gap-4 pt-14 sm:pt-16 pb-6">
+      {/* Schedule header layout — sidebar toggle + title + subtitle */}
+      <div className="flex-shrink-0 flex items-start gap-4 pt-14 sm:pt-16 pb-5">
         <button
           onClick={onToggleSidebar}
           className={`p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 flex-shrink-0 ${sidebarOpen ? "opacity-0 pointer-events-none" : ""}`}
@@ -174,7 +218,23 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
         </button>
         <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">Study Schedule</h1>
-          <p className="text-sm text-zinc-500 mt-1">Plan your weekly lessons — click any cell to add a subject</p>
+          <p className="text-sm text-zinc-500 mt-1">Plan your weekly lessons</p>
+        </div>
+      </div>
+
+      {/* Статистика расписания — компактные карточки */}
+      <div className="grid grid-cols-3 gap-3 mb-5 flex-shrink-0">
+        <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
+          <p className="text-xs text-zinc-500">Total lessons</p>
+          <p className="text-xl font-bold text-white mt-0.5">{totalLessons}</p>
+        </div>
+        <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
+          <p className="text-xs text-zinc-500">Busiest day</p>
+          <p className="text-xl font-bold text-emerald-400 mt-0.5">{busiestDay}</p>
+        </div>
+        <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
+          <p className="text-xs text-zinc-500">Free slots</p>
+          <p className="text-xl font-bold text-white mt-0.5">{freeSlots}</p>
         </div>
       </div>
 
@@ -208,21 +268,26 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
             {/* Строки расписания */}
             {LESSONS.map((lesson) => (
               <React.Fragment key={lesson}>
-                {/* Номер пары — sticky left, responsive cell sizing */}
+                {/* Номер пары — sticky left */}
                 <div className="sticky left-0 z-10 flex items-center justify-center h-[72px] bg-zinc-950 text-xs text-zinc-500 font-mono border-b border-zinc-800/30">
                   {lesson}
                 </div>
 
-                {/* Ячейки по дням с drag & drop поддержкой */}
+                {/* Ячейки по дням с drag & drop */}
                 {DAYS.map((_, dayIdx) => {
                   const lessonData = getLesson(dayIdx, lesson);
                   const isOver = isDragTarget(dayIdx, lesson);
                   const isDragging = isDragSource(dayIdx, lesson);
+                  const cellKey = `${dayIdx}-${lesson}`;
+                  const isNew = newCells.has(cellKey);
+                  const isDeleting = deletingCells.has(cellKey);
+                  const isCurrentDay = dayIdx === currentDayIndex;
+
                   return (
                     <button
-                      key={`${lesson}-${dayIdx}`}
+                      key={cellKey}
                       onClick={() => openModal(dayIdx, lesson)}
-                      draggable={!!lessonData}
+                      draggable={!!lessonData && !isDeleting}
                       onDragStart={lessonData ? (e) => handleDragStart(dayIdx, lesson, e) : undefined}
                       onDragOver={handleDragOver}
                       onDragEnter={() => setDragTarget({ day: dayIdx, lesson })}
@@ -238,11 +303,23 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                           : "hover:bg-zinc-900/60 hover:border-emerald-500/25 hover:shadow-[0_0_8px_rgba(16,185,129,0.08)] hover:scale-[1.02] hover:z-10"
                         }
                         ${isOver
-                          ? "ring-2 ring-emerald-500/50 bg-emerald-500/5 border-emerald-500/60 scale-[1.02] z-10"
+                          ? "ring-2 ring-emerald-500/50 bg-emerald-500/5 border-emerald-500/60 scale-[1.03] shadow-xl z-10"
                           : ""
                         }
                         ${isDragging
                           ? "opacity-30 scale-[0.97]"
+                          : ""
+                        }
+                        ${isCurrentDay && lessonData && !isDeleting
+                          ? "bg-emerald-500/[0.04]"
+                          : ""
+                        }
+                        ${isNew
+                          ? "animate-fade-in"
+                          : ""
+                        }
+                        ${isDeleting
+                          ? "opacity-0 scale-95 pointer-events-none"
                           : ""
                         }
                       `}
@@ -262,14 +339,18 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                             {lessonData.teacher && (
                               <div className="text-xs text-zinc-600 truncate">{lessonData.teacher}</div>
                             )}
+                            {/* Today badge — только для уроков текущего дня */}
+                            {isCurrentDay && (
+                              <div className="text-[10px] text-emerald-500/70 font-medium mt-1">Today</div>
+                            )}
                           </div>
 
                           {/* Иконка редактирования при hover */}
                           <div className="absolute top-1 right-1 text-xs text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity duration-150">✏️</div>
                         </>
                       ) : (
-                        /* Пустая ячейка — "+" при hover */
-                        <div className="flex items-center justify-center h-full">
+                        /* Пустая ячейка — "+" при hover, курсор pointer */
+                        <div className="flex items-center justify-center h-full cursor-pointer">
                           <span className="text-zinc-600 text-base opacity-0 group-hover:opacity-60 transition-opacity duration-200">+</span>
                         </div>
                       )}
@@ -279,15 +360,26 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
               </React.Fragment>
             ))}
           </div>
+
+          {/* Drag & Drop hint */}
+          <div className="px-4 py-3 text-center">
+            <p className="text-xs text-zinc-600">💡 Drag lessons between cells to quickly reorganize your schedule</p>
+          </div>
         </div>
 
-        {/* Empty state overlay — pointer-events-none для кликов сквозь */}
+        {/* Empty state overlay — с кнопкой Add lesson (pointer-events-auto) */}
         {!hasAnyLesson && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <div className="text-center bg-zinc-950/50 backdrop-blur-[2px] px-8 py-6 rounded-2xl border border-zinc-800/30 animate-fade-in">
               <div className="text-5xl mb-4 opacity-60">📚</div>
-              <h3 className="text-lg font-semibold text-zinc-300 mb-1">No lessons yet</h3>
-              <p className="text-sm text-zinc-500">Click any cell to add a subject</p>
+              <h3 className="text-lg font-semibold text-zinc-300 mb-2">No lessons yet</h3>
+              <p className="text-sm text-zinc-500 mb-4">Click any cell to add your first lesson</p>
+              <button
+                onClick={() => openModal(0, 1)}
+                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 hover:scale-105 hover:shadow-emerald-500/40 active:scale-95 text-white px-5 py-2 rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-emerald-500/25 pointer-events-auto"
+              >
+                Add lesson
+              </button>
             </div>
           </div>
         )}
@@ -379,7 +471,6 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                 >
                   Cancel
                 </button>
-                {/* Save button — emerald gradient в стиле главной кнопки Add */}
                 <button
                   onClick={handleSave}
                   className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 hover:scale-105 hover:shadow-emerald-500/40 active:scale-95 text-white px-5 py-2 rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-emerald-500/25"
