@@ -19,6 +19,8 @@ const CURRENT_LIST_KEY = "currentListId";
 const SIDEBAR_KEY = "sidebarOpen";
 const TRASH_KEY = "taskTrash";
 const CURRENT_PAGE_KEY = "currentPage";
+const FILTER_KEY = "taskFilter";
+const SEARCH_KEY = "taskSearch";
 
 // Константы
 const TRASH_DAYS = 30;
@@ -69,9 +71,17 @@ function App() {
   // Trash задачи
   const [trash, setTrash] = useState([]);
   // Поиск
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try { return localStorage.getItem(SEARCH_KEY) || ""; }
+    catch { return ""; }
+  });
   // Фильтр: all / active / completed
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem(FILTER_KEY);
+      return ["all", "active", "completed"].includes(saved) ? saved : "all";
+    } catch { return "all"; }
+  });
   // Undo toast
   const [recentlyDeleted, setRecentlyDeleted] = useState(null);
   const undoTimeoutRef = useRef(null);
@@ -240,6 +250,18 @@ function App() {
   useEffect(() => {
     localStorage.setItem(CURRENT_PAGE_KEY, currentPage);
   }, [currentPage]);
+
+  // Сохранение searchQuery в localStorage
+  useEffect(() => {
+    localStorage.setItem(SEARCH_KEY, searchQuery);
+  }, [searchQuery]);
+
+  // Сохранение filter в localStorage
+  useEffect(() => {
+    localStorage.setItem(FILTER_KEY, filter);
+  }, [filter]);
+
+  // Отключение pull-to-refresh на мобильных — CSS overscroll-behavior в index.html + body overflow:hidden
 
   // Обработчик toggle
   const handleToggle = () => {
