@@ -9,6 +9,7 @@ import TaskInput from "./components/TaskInput";
 import TaskList from "./components/TaskList";
 import Sidebar from "./components/Sidebar";
 import Schedule from "./components/Schedule";
+import WelcomeScreen from "./components/WelcomeScreen";
 import LeftIcon from "./icons/LeftIcon";
 import RightIcon from "./icons/RightIcon";
 import ChevronIcon from "./icons/ChevronIcon";
@@ -103,6 +104,8 @@ function App() {
   // Ref для dropdown
   const dropdownRef = useRef(null);
   // Текущая страница: 'tasks' | 'schedule'
+  // Показывать WelcomeScreen при старте (только один раз за сессию)
+  const [showWelcome, setShowWelcome] = useState(true);
 
   // Текущие задачи
   const tasks = getTasksFromLists(lists, currentListId);
@@ -475,6 +478,14 @@ function App() {
 
   return (
     <div className="h-screen overflow-hidden bg-black">
+      {/* WelcomeScreen — только при полном запуске, не при переключении страниц */}
+      {showWelcome && (
+        <WelcomeScreen
+          tasks={tasks}
+          onComplete={() => setShowWelcome(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
