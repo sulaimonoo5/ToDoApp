@@ -18,6 +18,7 @@ const LISTS_KEY = "todoLists";
 const CURRENT_LIST_KEY = "currentListId";
 const SIDEBAR_KEY = "sidebarOpen";
 const TRASH_KEY = "taskTrash";
+const CURRENT_PAGE_KEY = "currentPage";
 
 // Константы
 const TRASH_DAYS = 30;
@@ -79,7 +80,14 @@ function App() {
   // Состояние sidebar (открыт/закрыт)
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Текущая страница: "tasks" | "schedule"
-  const [currentPage, setCurrentPage] = useState("tasks");
+  const [currentPage, setCurrentPage] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CURRENT_PAGE_KEY);
+      return saved === "tasks" || saved === "schedule" ? saved : "tasks";
+    } catch {
+      return "tasks";
+    }
+  });
   // Флаг: идёт ли загрузка из localStorage
   const isLoadingRef = useRef(true);
   // Ref для dropdown
@@ -227,6 +235,11 @@ function App() {
       localStorage.setItem(SIDEBAR_KEY, String(sidebarOpen));
     }
   }, [sidebarOpen, isDesktop]);
+
+  // Сохранение currentPage в localStorage
+  useEffect(() => {
+    localStorage.setItem(CURRENT_PAGE_KEY, currentPage);
+  }, [currentPage]);
 
   // Обработчик toggle
   const handleToggle = () => {

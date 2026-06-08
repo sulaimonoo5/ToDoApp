@@ -21,6 +21,17 @@ function createWindow() {
     mainWindow.webContents.openDevTools()
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+
+    // Блокировка случайного refresh в production (F5, Ctrl+R, Cmd+R)
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (
+        input.key === 'F5' ||
+        (input.control && input.key.toLowerCase() === 'r') ||
+        (input.meta && input.key.toLowerCase() === 'r')
+      ) {
+        event.preventDefault()
+      }
+    })
   }
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
