@@ -5,6 +5,7 @@
 // localStorage ключ: scheduleData
 
 import React, { useState, useEffect } from "react";
+import RightIcon from "../icons/RightIcon";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LESSONS = Array.from({ length: 14 }, (_, i) => i + 1);
@@ -21,7 +22,7 @@ const COLOR_MAP = {
   orange: { text: "text-orange-300", accent: "bg-orange-500/70", border: "border-orange-500/40" },
 };
 
-function Schedule() {
+function Schedule({ onToggleSidebar, sidebarOpen }) {
   const [data, setData] = useState({});
   const [selectedCell, setSelectedCell] = useState(null);
   const [form, setForm] = useState({ name: "", teacher: "", room: "", notes: "", color: "emerald" });
@@ -161,11 +162,20 @@ function Schedule() {
   };
 
   return (
-    <div className="flex flex-col h-full animate-fade-in pt-8 px-4 sm:px-6 max-w-5xl mx-auto w-full">
-      {/* Header */}
-      <div className="flex-shrink-0 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">Study Schedule</h1>
-        <p className="text-sm text-zinc-500 mt-1.5">Plan your weekly lessons — click any cell to add a subject</p>
+    <div className="flex flex-col h-full animate-fade-in px-4 sm:px-6 max-w-5xl mx-auto w-full">
+      {/* Schedule header layout — sidebar toggle + title + subtitle, NOT fixed */}
+      <div className="flex-shrink-0 flex items-start gap-4 pt-14 sm:pt-16 pb-6">
+        <button
+          onClick={onToggleSidebar}
+          className={`p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 flex-shrink-0 ${sidebarOpen ? "opacity-0 pointer-events-none" : ""}`}
+          aria-label="Toggle sidebar"
+        >
+          <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
+        </button>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">Study Schedule</h1>
+          <p className="text-sm text-zinc-500 mt-1">Plan your weekly lessons — click any cell to add a subject</p>
+        </div>
       </div>
 
       {/* Grid контейнер */}

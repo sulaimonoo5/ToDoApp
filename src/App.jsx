@@ -452,12 +452,14 @@ function App() {
       {/* Основной контент — flex-колонка с локальным scroll только у списка задач */}
       <main
         className={`flex-1 h-full overflow-hidden transition-all duration-300 ${sidebarOpen && isDesktop ? "ml-80" : ""}`}>
-        {/* Кнопка открытия sidebar */}
-        <button
-          onClick={handleToggle}
-          className={`fixed top-4 z-50 p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 ${sidebarOpen && isDesktop ? "left-84" : "left-4"} ${sidebarOpen ? "-z-10 opacity-0 pointer-events-none" : ""}`}>
-          <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
-        </button>
+        {/* Кнопка открытия sidebar — только для страницы Tasks, на Schedule своя кнопка */}
+        {currentPage === "tasks" && (
+          <button
+            onClick={handleToggle}
+            className={`fixed top-4 z-50 p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 ${sidebarOpen && isDesktop ? "left-84" : "left-4"} ${sidebarOpen ? "-z-10 opacity-0 pointer-events-none" : ""}`}>
+            <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
+          </button>
+        )}
 
         {currentPage === "tasks" ? (
           <>
@@ -771,7 +773,7 @@ function App() {
         </div>
           </>
         ) : (
-          <Schedule />
+          <Schedule onToggleSidebar={handleToggle} sidebarOpen={sidebarOpen} />
         )}
       </main>
 
