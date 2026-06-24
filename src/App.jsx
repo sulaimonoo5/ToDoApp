@@ -9,6 +9,7 @@ import TaskInput from "./components/TaskInput";
 import TaskList from "./components/TaskList";
 import Sidebar from "./components/Sidebar";
 import Schedule from "./components/Schedule";
+import Home from "./components/Home";
 import WelcomeScreen from "./components/WelcomeScreen";
 import LeftIcon from "./icons/LeftIcon";
 import RightIcon from "./icons/RightIcon";
@@ -91,13 +92,13 @@ function App() {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   // Состояние sidebar (открыт/закрыт)
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Текущая страница: "tasks" | "schedule"
+  // Текущая страница: "home" | "tasks" | "schedule"
   const [currentPage, setCurrentPage] = useState(() => {
     try {
       const saved = localStorage.getItem(CURRENT_PAGE_KEY);
-      return saved === "tasks" || saved === "schedule" ? saved : "tasks";
+      return saved === "home" || saved === "tasks" || saved === "schedule" ? saved : "home";
     } catch {
-      return "tasks";
+      return "home";
     }
   });
   // Флаг: идёт ли загрузка из localStorage
@@ -502,8 +503,8 @@ function App() {
       {/* Основной контент — flex-колонка с локальным scroll только у списка задач */}
       <main
         className={`flex-1 h-full overflow-hidden transition-all duration-300 ${sidebarOpen && isDesktop ? "ml-80" : ""}`}>
-        {/* Кнопка открытия sidebar — только для страницы Tasks, на Schedule своя кнопка */}
-        {currentPage === "tasks" && (
+        {/* Кнопка открытия sidebar — для Home и Tasks, на Schedule своя кнопка */}
+        {(currentPage === "home" || currentPage === "tasks") && (
           <button
             onClick={handleToggle}
             className={`fixed top-4 z-50 p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 ${sidebarOpen && isDesktop ? "left-84" : "left-4"} ${sidebarOpen ? "-z-10 opacity-0 pointer-events-none" : ""}`}>
@@ -511,7 +512,16 @@ function App() {
           </button>
         )}
 
-        {currentPage === "tasks" ? (
+        {currentPage === "home" ? (
+          <Home
+            onToggleSidebar={handleToggle}
+            sidebarOpen={sidebarOpen}
+            tasks={tasks}
+            lists={lists}
+            onPageChange={setCurrentPage}
+            onToggle={toggleTask}
+          />
+        ) : currentPage === "tasks" ? (
           <>
           <div className="max-w-2xl mx-auto h-full flex flex-col pt-14 sm:pt-16 px-4 sm:px-6">
             {/* Sticky Header: заголовок → TaskInput — всегда виден, не скроллится */}

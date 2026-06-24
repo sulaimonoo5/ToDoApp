@@ -10,6 +10,7 @@ import LeftIcon from "../icons/LeftIcon";
 function Sidebar({ isOpen, onClose, currentPage, onPageChange }) {
   // Пункты меню боковой панели
   const menuItems = [
+    { name: "Home", icon: "🏠", page: "home" },
     { name: "Tasks", icon: "📋", page: "tasks" },
     { name: "Schedule", icon: "📅", page: "schedule" },
   ];
