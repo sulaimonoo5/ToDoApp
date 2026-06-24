@@ -54,6 +54,9 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   const [newCells, setNewCells] = useState(new Set());
   const [deletingCells, setDeletingCells] = useState(new Set());
 
+  // Таймер для живого обновления Next Lesson
+  const [now, setNow] = useState(() => new Date());
+
   // Trash + Undo для уроков
   const [lessonTrash, setLessonTrash] = useState([]);
   const [isLessonTrashOpen, setIsLessonTrashOpen] = useState(false);
@@ -94,6 +97,12 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     }
   }, [lessonTrash]);
 
+  // Таймер обновления Next Lesson каждые 60 секунд
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   const isTrashExpired = (deletedAt) => {
     const now = Date.now();
     const daysDiff = (now - deletedAt) / (1000 * 60 * 60 * 24);
@@ -133,7 +142,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     }
   }, [isLessonTrashOpen]);
 
-  const today = new Date().getDay();
+  const today = now.getDay();
   const currentDayIndex = today >= 1 && today <= 6 ? today - 1 : -1;
 
   // Статистика расписания
@@ -148,14 +157,14 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
 
   const hasAnyLesson = totalLessons > 0;
 
-  // ------ Next Lesson ------
-  const getNextLesson = () => {
-    if (currentDayIndex === -1) return null;
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  // ------ Next Lesson (живой виджет) ------
+  const getNextLessonInfo = () => {
+    if (currentDayIndex === -1) return { status: 'noLessons' };
 
     const dayData = data[currentDayIndex];
-    if (!dayData) return null;
+    if (!dayData) return { status: 'noLessons' };
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
     const lessons = Object.entries(dayData)
       .map(([lessonNum, lesson]) => ({
@@ -169,30 +178,58 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
         return aH * 60 + aM - (bH * 60 + bM);
       });
 
+    if (lessons.length === 0) return { status: 'noLessons' };
+
     for (const lesson of lessons) {
-      const [h, m] = lesson.startTime.split(":").map(Number);
-      const lessonStartMinutes = h * 60 + m;
-      if (lessonStartMinutes > currentMinutes) return lesson;
+      const [startH, startM] = (lesson.startTime || "00:00").split(":").map(Number);
+      const [endH, endM] = (lesson.endTime || "23:59").split(":").map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+
+      if (nowMinutes < startMinutes) {
+        return { lesson, status: 'upcoming', diff: startMinutes - nowMinutes };
+      }
+      if (nowMinutes >= startMinutes && nowMinutes < endMinutes) {
+        return { lesson, status: 'inProgress', diff: 0 };
+      }
     }
-    return null;
+
+    return { status: 'noMoreToday' };
   };
 
-  const nextLesson = getNextLesson();
+  const formatNextLesson = (info) => {
+    if (!info || info.status === 'noLessons' || info.status === 'noMoreToday') {
+      return { badge: '', badgeColor: 'text-zinc-500' };
+    }
 
-  const getTimeUntil = (startTime) => {
-    if (!startTime) return "";
-    const [h, m] = startTime.split(":").map(Number);
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const lessonMinutes = h * 60 + m;
-    const diff = lessonMinutes - nowMinutes;
-    if (diff <= 0) return "Starting now";
-    if (diff < 60) return `Starts in ${diff} min`;
-    const hours = Math.floor(diff / 60);
-    const mins = diff % 60;
-    if (mins === 0) return `Starts in ${hours}h`;
-    return `Starts in ${hours}h ${mins}m`;
+    const { status, diff } = info;
+
+    if (status === 'inProgress') {
+      return { badge: 'In progress', badgeColor: 'text-emerald-400' };
+    }
+
+    if (diff <= 0) {
+      return { badge: 'Starts now', badgeColor: 'text-emerald-400' };
+    }
+
+    let badge;
+    if (diff < 60) {
+      badge = `Starts in ${diff} min`;
+    } else {
+      const hours = Math.floor(diff / 60);
+      const mins = diff % 60;
+      badge = mins === 0 ? `Starts in ${hours}h` : `Starts in ${hours}h ${mins}m`;
+    }
+
+    return {
+      badge,
+      badgeColor: diff <= 1 ? 'text-emerald-400' : 'text-emerald-400',
+    };
   };
+
+  const nextLessonInfo = getNextLessonInfo();
+  const { badge, badgeColor } = formatNextLesson(nextLessonInfo);
+  const showNextBlock = totalLessons > 0;
 
   // ------ Modal handlers ------
   const openModal = (day, lesson) => {
@@ -432,31 +469,35 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
         </div>
       </div>
 
-      {/* Next Lesson блок */}
-      {hasAnyLesson && (
+      {/* Next Lesson — живой виджет */}
+      {showNextBlock && (
         <div className="flex-shrink-0 mb-5 rounded-xl border border-zinc-700/30 bg-zinc-800/30 px-5 py-4">
-          {nextLesson ? (
-            <div>
-              <p className="text-xs text-zinc-500 mb-2">Next Lesson</p>
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-base font-bold text-white truncate">{nextLesson.name}</p>
-                  <p className="text-sm text-zinc-400 mt-0.5">
-                    {nextLesson.startTime} — {nextLesson.endTime}
-                  </p>
-                  {nextLesson.room && (
-                    <p className="text-sm text-zinc-500">Room {nextLesson.room}</p>
-                  )}
-                </div>
-                <div className="flex-shrink-0 text-right">
-                  <p className="text-xs text-emerald-400 font-medium whitespace-nowrap">
-                    {getTimeUntil(nextLesson.startTime)}
-                  </p>
-                </div>
+          <p className="text-xs text-zinc-500 mb-2">Next Lesson</p>
+
+          {nextLessonInfo && (nextLessonInfo.status === 'upcoming' || nextLessonInfo.status === 'inProgress') ? (
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-base font-bold text-white truncate">{nextLessonInfo.lesson.name}</p>
+                <p className="text-sm text-zinc-400 mt-0.5">
+                  {nextLessonInfo.lesson.startTime} — {nextLessonInfo.lesson.endTime}
+                </p>
+                {nextLessonInfo.lesson.room && (
+                  <p className="text-sm text-zinc-500 mt-0.5">Room {nextLessonInfo.lesson.room}</p>
+                )}
+              </div>
+              <div className="flex-shrink-0">
+                <p key={badge} className={`text-xs font-medium whitespace-nowrap animate-fade-in ${badgeColor}`}>
+                  {badge}
+                </p>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-zinc-500">No upcoming lessons</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-zinc-500">No more lessons today</p>
+              {(nextLessonInfo && nextLessonInfo.status === 'noMoreToday') && (
+                <p className="text-xs text-zinc-600 font-medium">✓ Done</p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -841,11 +882,11 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
       {/* Undo Toast для уроков */}
       {recentlyDeletedLesson && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
-          <div className="flex items-center gap-5 bg-zinc-800/95 backdrop-blur-sm px-6 py-4 rounded-xl shadow-xl shadow-black/40 border border-zinc-700/50">
-            <span className="text-zinc-200 text-base font-medium">Lesson deleted</span>
+          <div className="flex items-center gap-2 sm:gap-5 bg-zinc-800/95 backdrop-blur-sm px-4 sm:px-6 py-2 sm:py-4 rounded-xl shadow-xl shadow-black/40 border border-zinc-700/50">
+            <span className="text-zinc-200 text-sm sm:text-base font-medium truncate min-w-0">Lesson deleted</span>
             <button
               onClick={undoLessonDelete}
-              className="bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm px-5 py-2 rounded-lg transition-all duration-200 active:scale-95"
+              className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-xs sm:text-sm px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all duration-200 active:scale-95"
             >
               Undo
             </button>

@@ -907,13 +907,13 @@ function App() {
       {/* Undo Toast */}
       {recentlyDeleted && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
-          <div className="flex items-center gap-5 bg-zinc-800/95 backdrop-blur-sm px-6 py-4 rounded-xl shadow-xl shadow-black/40 border border-zinc-700/50">
-            <span className="text-zinc-200 text-base font-medium">
+          <div className="flex items-center gap-2 sm:gap-5 bg-zinc-800/95 backdrop-blur-sm px-4 sm:px-6 py-2 sm:py-4 rounded-xl shadow-xl shadow-black/40 border border-zinc-700/50">
+            <span className="text-zinc-200 text-sm sm:text-base font-medium truncate min-w-0">
               Task deleted
             </span>
             <button
               onClick={undoDelete}
-              className="bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm px-5 py-2 rounded-lg transition-all duration-200 active:scale-95">
+              className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-xs sm:text-sm px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all duration-200 active:scale-95">
               Undo
             </button>
           </div>
