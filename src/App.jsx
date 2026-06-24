@@ -35,6 +35,14 @@ const formatDate = () => {
   return date.toLocaleDateString("en-US", options);
 };
 
+// Для единого Header — дата и время
+const getDateStr = (d) => {
+  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+};
+const getTimeStr = (d) => `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+
 // Создание нового списка
 const createNewList = (name) => ({
   id: Date.now().toString(),
@@ -103,6 +111,8 @@ function App() {
   });
   // Флаг: идёт ли загрузка из localStorage
   const isLoadingRef = useRef(true);
+  // Часы для единого Header
+  const [now, setNow] = useState(new Date());
   // Ref для dropdown
   const dropdownRef = useRef(null);
   // Текущая страница: 'tasks' | 'schedule'
@@ -270,6 +280,12 @@ function App() {
   useEffect(() => {
     notificationService.start();
     return () => notificationService.stop();
+  }, []);
+
+  // Таймер обновления часов в Header
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   // Отключение pull-to-refresh на мобильных — CSS overscroll-behavior в index.html + body overflow:hidden
@@ -503,14 +519,6 @@ function App() {
       {/* Основной контент — flex-колонка с локальным scroll только у списка задач */}
       <main
         className={`flex-1 h-full overflow-hidden transition-all duration-300 ${sidebarOpen && isDesktop ? "ml-80" : ""}`}>
-        {/* Кнопка открытия sidebar — для Home и Tasks, на Schedule своя кнопка */}
-        {(currentPage === "home" || currentPage === "tasks") && (
-          <button
-            onClick={handleToggle}
-            className={`fixed top-4 z-50 p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 ${sidebarOpen && isDesktop ? "left-84" : "left-4"} ${sidebarOpen ? "-z-10 opacity-0 pointer-events-none" : ""}`}>
-            <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
-          </button>
-        )}
 
         {currentPage === "home" ? (
           <Home
@@ -522,316 +530,143 @@ function App() {
             onToggle={toggleTask}
           />
         ) : currentPage === "tasks" ? (
-          <>
-          <div className="max-w-2xl mx-auto h-full flex flex-col pt-14 sm:pt-16 px-4 sm:px-6">
-            {/* Sticky Header: заголовок → TaskInput — всегда виден, не скроллится */}
-            <div className="sticky top-0 z-10 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0 space-y-3 pb-3">
-            {/* Заголовок и статистика */}
-            <div>
-              {/* Переключатель списков */}
-              <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white flex-shrink-0">
-                  {getGreeting()}
-                </h1>
+          <div className="flex flex-col h-full">
+            {/* Единый закреплённый Header */}
+            <div className="sticky top-0 z-20 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0">
+              <div className="max-w-5xl mx-auto px-4 sm:px-6">
+                <div className="flex items-center gap-3 sm:gap-4 py-3">
+                  <button
+                    onClick={handleToggle}
+                    className={`p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 flex-shrink-0 ${sidebarOpen && isDesktop ? "opacity-0 pointer-events-none" : ""}`}
+                    aria-label="Toggle sidebar">
+                    <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
+                  </button>
 
-                <div className="flex items-center gap-2 ml-auto flex-shrink-0">
-                  {/* Dropdown переключатель списков */}
-                  <div className="relative" ref={dropdownRef}>
-                    <button
-                      onClick={() => setIsListDropdownOpen(!isListDropdownOpen)}
-                      className="flex items-center gap-2 bg-zinc-800/70 hover:bg-zinc-700/70 w-[130px] sm:w-[160px] flex-shrink-0 px-3 sm:px-4 py-2 rounded-xl transition-all duration-200">
-                      <span className="text-white text-sm sm:text-base truncate min-w-0">
-                        {currentList ? currentList.name : "Select List"}
-                      </span>
-                      <ChevronIcon
-                        className={`w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform duration-200 ${isListDropdownOpen ? "rotate-180" : ""}`}
-                      />
+                  <h1 className="text-xl sm:text-2xl font-bold text-white flex-shrink-0">{getGreeting()}</h1>
+
+                  <div className="ml-auto flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    {/* Dropdown переключатель списков */}
+                    <div className="relative" ref={dropdownRef}>
+                      <button
+                        onClick={() => setIsListDropdownOpen(!isListDropdownOpen)}
+                        className="flex items-center gap-2 bg-zinc-800/70 hover:bg-zinc-700/70 w-[110px] sm:w-[145px] flex-shrink-0 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition-all duration-200">
+                        <span className="text-white text-xs sm:text-sm truncate min-w-0">{currentList ? currentList.name : "Select List"}</span>
+                        <ChevronIcon className={`w-3.5 h-3.5 text-zinc-400 flex-shrink-0 transition-transform duration-200 ${isListDropdownOpen ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {isListDropdownOpen && (
+                        <div className="absolute top-full right-0 mt-2 w-72 max-h-44 overflow-y-auto bg-zinc-800 rounded-xl shadow-xl shadow-black/30 border border-zinc-700/50 py-2 z-50 animate-fade-in">
+                          {lists.map((list) => (
+                            <div key={list.id} className={`flex items-center justify-between px-4 py-2.5 text-sm transition-all duration-200 min-w-0 overflow-hidden ${list.id === currentListId ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-300 hover:bg-zinc-700"}`}>
+                              {editingListId === list.id ? (
+                                <input type="text" value={editingListName} onChange={(e) => setEditingListName(e.target.value.slice(0, 50))} onKeyDown={(e) => { if (e.key === "Enter") saveEditList(); if (e.key === "Escape") { setEditingListId(null); setEditingListName(""); } }} onBlur={saveEditList} autoFocus className="flex-1 bg-zinc-700/50 px-2 py-1 rounded text-white text-sm focus:outline-none" />
+                              ) : (
+                                <button onClick={() => switchToList(list.id)} className="flex-1 text-left truncate min-w-0">{list.name}</button>
+                              )}
+                              {list.id === currentListId && (
+                                <div className="flex gap-1 ml-2">
+                                  <button onClick={() => startEditList(list)} className="p-1 text-zinc-400 hover:text-emerald-400 transition-colors" title="Rename">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  </button>
+                                  {lists.length > 1 && (
+                                    <button onClick={() => deleteList(list.id)} className="p-1 text-zinc-400 hover:text-red-400 transition-colors" title="Delete">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          <div className="border-t border-zinc-700/50 my-2" />
+                          {isCreatingList ? (
+                            <div className="px-3 py-2">
+                              <input type="text" value={newListName} onChange={(e) => { setNewListName(e.target.value.slice(0, 50)); if (newListError) setNewListError(""); }} onKeyDown={(e) => { if (e.key === "Enter") createList(); if (e.key === "Escape") { setIsCreatingList(false); setNewListName(""); setNewListError(""); } }} placeholder="List name..." autoFocus className={`w-full bg-zinc-700/50 px-3 py-2 rounded-lg text-white text-sm placeholder-zinc-500 focus:outline-none transition-all duration-200 ${newListError ? "ring-2 ring-red-500/60" : "focus:ring-2 focus:ring-emerald-500/50"}`} />
+                              {newListError && <p className="text-red-400 text-xs mt-1.5 animate-fade-in">{newListError}</p>}
+                              <div className="flex gap-2 mt-2">
+                                <button onClick={createList} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-medium py-1.5 rounded-lg transition-all duration-200">Create</button>
+                                <button onClick={() => { setIsCreatingList(false); setNewListName(""); setNewListError(""); }} className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs font-medium py-1.5 rounded-lg transition-all duration-200">Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button onClick={() => { setIsCreatingList(true); setNewListError(""); }} className="w-full text-left px-4 py-2.5 text-sm text-emerald-400 hover:bg-zinc-700 transition-all duration-200">+ Create new list</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Кнопка корзины */}
+                    <button onClick={() => setIsTrashOpen(true)} className="relative p-2 bg-zinc-800/70 hover:bg-zinc-700/70 rounded-xl transition-all duration-200" title="Trash">
+                      <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      {trash.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">{trash.length}</span>}
                     </button>
 
-                    {/* Dropdown меню */}
-                    {isListDropdownOpen && (
-                      <div className="absolute top-full right-0 mt-2 w-72 max-h-44 overflow-y-auto bg-zinc-800 rounded-xl shadow-xl shadow-black/30 border border-zinc-700/50 py-2 z-50 animate-fade-in">
-                        {lists.map((list) => (
-                          <div
-                            key={list.id}
-                            className={`flex items-center justify-between px-4 py-2.5 text-sm transition-all duration-200 min-w-0 overflow-hidden ${
-                              list.id === currentListId
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : "text-zinc-300 hover:bg-zinc-700"
-                            }`}>
-                            {editingListId === list.id ? (
-                              <input
-                                type="text"
-                                value={editingListName}
-                                onChange={(e) =>
-                                  setEditingListName(
-                                    e.target.value.slice(0, 50),
-                                  )
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveEditList();
-                                  if (e.key === "Escape") {
-                                    setEditingListId(null);
-                                    setEditingListName("");
-                                  }
-                                }}
-                                onBlur={saveEditList}
-                                autoFocus
-                                className="flex-1 bg-zinc-700/50 px-2 py-1 rounded text-white text-sm focus:outline-none"
-                              />
-                            ) : (
-                              <button
-                                onClick={() => switchToList(list.id)}
-                                className="flex-1 text-left truncate min-w-0">
-                                {list.name}
-                              </button>
-                            )}
-
-                            {list.id === currentListId && (
-                              <div className="flex gap-1 ml-2">
-                                <button
-                                  onClick={() => startEditList(list)}
-                                  className="p-1 text-zinc-400 hover:text-emerald-400 transition-colors"
-                                  title="Rename">
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                    />
-                                  </svg>
-                                </button>
-                                {lists.length > 1 && (
-                                  <button
-                                    onClick={() => deleteList(list.id)}
-                                    className="p-1 text-zinc-400 hover:text-red-400 transition-colors"
-                                    title="Delete">
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24">
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                      />
-                                    </svg>
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-
-                        {/* Разделитель */}
-                        <div className="border-t border-zinc-700/50 my-2" />
-
-                        {/* Создать новый список */}
-                        {isCreatingList ? (
-                          <div className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={newListName}
-                              onChange={(e) => {
-                                setNewListName(e.target.value.slice(0, 50));
-                                if (newListError) setNewListError("");
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") createList();
-                                if (e.key === "Escape") {
-                                  setIsCreatingList(false);
-                                  setNewListName("");
-                                  setNewListError("");
-                                }
-                              }}
-                              placeholder="List name..."
-                              autoFocus
-                              className={`w-full bg-zinc-700/50 px-3 py-2 rounded-lg text-white text-sm placeholder-zinc-500 focus:outline-none transition-all duration-200 ${
-                                newListError
-                                  ? "ring-2 ring-red-500/60"
-                                  : "focus:ring-2 focus:ring-emerald-500/50"
-                              }`}
-                            />
-                            {newListError && (
-                              <p className="text-red-400 text-xs mt-1.5 animate-fade-in">
-                                {newListError}
-                              </p>
-                            )}
-                            <div className="flex gap-2 mt-2">
-                              <button
-                                onClick={createList}
-                                className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-medium py-1.5 rounded-lg transition-all duration-200">
-                                Create
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setIsCreatingList(false);
-                                  setNewListName("");
-                                  setNewListError("");
-                                }}
-                                className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs font-medium py-1.5 rounded-lg transition-all duration-200">
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setIsCreatingList(true);
-                              setNewListError("");
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-emerald-400 hover:bg-zinc-700 transition-all duration-200">
-                            + Create new list
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    {/* Дата и время */}
+                    <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap">📅 {getDateStr(now)}</span>
+                    <span className="text-xs text-zinc-400 font-mono whitespace-nowrap">🕒 {getTimeStr(now)}</span>
                   </div>
-
-                  {/* Кнопка корзины */}
-                  <button
-                    onClick={() => setIsTrashOpen(true)}
-                    className="relative p-2 bg-zinc-800/70 hover:bg-zinc-700/70 rounded-xl transition-all duration-200"
-                    title="Trash">
-                    <svg
-                      className="w-5 h-5 text-zinc-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                    {trash.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                        {trash.length}
-                      </span>
-                    )}
-                  </button>
                 </div>
               </div>
+            </div>
 
-              <p className="text-zinc-500 text-xs sm:text-sm mb-2">
-                Stay focused. One step at a time.
-              </p>
-              <p className="text-zinc-600 text-xs mb-4 sm:mb-6">
-                {formatDate()}
-              </p>
+            {/* Scrollable контент */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-8 space-y-4">
+                <p className="text-zinc-500 text-xs sm:text-sm mb-2">Stay focused. One step at a time.</p>
+                <p className="text-zinc-600 text-xs">{formatDate()}</p>
 
-              {/* Разделитель */}
-              <div className="border-b border-zinc-800 mb-4 sm:mb-6" />
+                <div className="border-b border-zinc-800" />
 
-              {/* Прогресс */}
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-zinc-400 text-xs sm:text-sm">
-                  {tasks.length === 0
-                    ? "No tasks yet"
-                    : `${completedCount} of ${tasks.length} completed`}
-                </p>
-                <p className="text-zinc-500 text-xs sm:text-sm">
-                  {Math.round(progress)}%
-                </p>
-              </div>
-              {tasks.length > 0 && (
-                <div className="w-full h-2 bg-zinc-800/50 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-emerald-400 to-green-600 rounded-full transition-all duration-500 shadow-lg shadow-emerald-500/20"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              )}
-
-              {/* 100% completed — checkmark + glow */}
-              {tasks.length > 0 && completedCount === tasks.length && (
-                <div className="mt-4 text-center animate-fade-in">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
-                    <svg
-                      className="w-5 h-5 text-emerald-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <p className="text-emerald-400 text-sm font-medium">
-                      All tasks completed
+                {/* Прогресс */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-zinc-400 text-xs sm:text-sm">
+                      {tasks.length === 0 ? "No tasks yet" : `${completedCount} of ${tasks.length} completed`}
                     </p>
-          </div>
-        </div>
-      )}
-            </div>
+                    <p className="text-zinc-500 text-xs sm:text-sm">{Math.round(progress)}%</p>
+                  </div>
+                  {tasks.length > 0 && (
+                    <div className="w-full h-2 bg-zinc-800/50 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-emerald-400 to-green-600 rounded-full transition-all duration-500 shadow-lg shadow-emerald-500/20" style={{ width: `${progress}%` }} />
+                    </div>
+                  )}
+                  {tasks.length > 0 && completedCount === tasks.length && (
+                    <div className="mt-4 text-center animate-fade-in">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
+                        <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <p className="text-emerald-400 text-sm font-medium">All tasks completed</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-            {/* Поиск и фильтры */}
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="w-full bg-zinc-800/50 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all duration-200"
-              />
-              <div className="flex gap-2">
-                {["all", "active", "completed"].map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
-                      filter === f
-                        ? "bg-emerald-500 text-white"
-                        : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
-                    }`}>
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
+                {/* Поиск и фильтры */}
+                <div className="space-y-3">
+                  <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search..." className="w-full bg-zinc-800/50 backdrop-blur-sm px-4 py-2.5 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all duration-200" />
+                  <div className="flex gap-2">
+                    {["all", "active", "completed"].map((f) => (
+                      <button key={f} onClick={() => setFilter(f)} className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${filter === f ? "bg-emerald-500 text-white" : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"}`}>
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* TaskInput */}
+                <TaskInput onAdd={addTask} />
+
+                {/* TaskList */}
+                <div className="min-h-0">
+                  {(() => {
+                    let filtered = tasks;
+                    if (searchQuery) filtered = filtered.filter((t) => t.text.toLowerCase().includes(searchQuery.toLowerCase()));
+                    if (filter === "active") filtered = filtered.filter((t) => !t.completed);
+                    if (filter === "completed") filtered = filtered.filter((t) => t.completed);
+                    return <TaskList tasks={filtered} onDelete={deleteTask} onToggle={toggleTask} onReorder={reorderTasks} onEdit={editTask} isMobile={!isDesktop} />;
+                  })()}
+                </div>
               </div>
             </div>
-
-            {/* Поле ввода новой задачи */}
-            <TaskInput onAdd={addTask} />
           </div>
-
-          {/* Scrollable список задач — использует тот же max-w-2xl и padding, что и header */}
-          <div className="flex-1 overflow-y-auto min-h-0 pb-4">
-            {/* Фильтрованные задачи */}
-            {(() => {
-              let filtered = tasks;
-              if (searchQuery) {
-                filtered = filtered.filter((t) =>
-                  t.text.toLowerCase().includes(searchQuery.toLowerCase()),
-                );
-              }
-              if (filter === "active")
-                filtered = filtered.filter((t) => !t.completed);
-              if (filter === "completed")
-                filtered = filtered.filter((t) => t.completed);
-              return (
-                <TaskList
-                  tasks={filtered}
-                  onDelete={deleteTask}
-                  onToggle={toggleTask}
-                  onReorder={reorderTasks}
-                  onEdit={editTask}
-                  isMobile={!isDesktop}
-                />
-              );
-            })()}
-          </div>
-        </div>
-          </>
         ) : (
           <Schedule onToggleSidebar={handleToggle} sidebarOpen={sidebarOpen} />
         )}

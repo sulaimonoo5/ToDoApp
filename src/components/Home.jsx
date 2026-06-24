@@ -186,6 +186,14 @@ function Home({
 
   const timeUntilStr = formatTimeUntil();
 
+  // Дата и время для единого Header
+  const getDateStr = (d) => {
+    const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+  };
+  const getTimeStr = (d) => `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+
   const priorityColors = {
     high: "text-red-400",
     medium: "text-amber-400",
@@ -194,28 +202,34 @@ function Home({
 
   return (
     <div className="flex flex-col h-full animate-fade-in">
-      {/* Header — sidebar toggle + greeting (как в Study Schedule) */}
-      <div className="flex-shrink-0 flex items-start gap-4 pt-14 sm:pt-16 px-4 sm:px-6 max-w-2xl mx-auto w-full pb-5">
-        <button
-          onClick={onToggleSidebar}
-          className={`p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 flex-shrink-0 ${sidebarOpen ? "opacity-0 pointer-events-none" : ""}`}
-          aria-label="Toggle sidebar">
-          <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">
-            {greeting}
-          </h1>
-          <p className="text-zinc-500 text-sm mt-2">{quote}</p>
-          <p className="text-zinc-600 text-xs sm:text-sm mt-3">
-            {dailySummary()}
-          </p>
+      {/* Единый закреплённый Header */}
+      <div className="sticky top-0 z-20 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-4 py-3">
+            <button
+              onClick={onToggleSidebar}
+              className={`p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 flex-shrink-0 ${sidebarOpen ? "opacity-0 pointer-events-none" : ""}`}
+              aria-label="Toggle sidebar">
+              <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
+            </button>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">{greeting}</h1>
+            <div className="ml-auto flex items-center gap-3">
+              <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap">📅 {getDateStr(now)}</span>
+              <span className="text-xs text-zinc-400 font-mono whitespace-nowrap">🕒 {getTimeStr(now)}</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto min-h-0 pb-8">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 space-y-5">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 space-y-5">
+          <div className="animate-fade-in">
+            <p className="text-zinc-500 text-sm">{quote}</p>
+            <p className="text-zinc-600 text-xs sm:text-sm mt-1.5">
+              {dailySummary()}
+            </p>
+          </div>
           {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">

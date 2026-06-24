@@ -231,6 +231,14 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   const { badge, badgeColor } = formatNextLesson(nextLessonInfo);
   const showNextBlock = totalLessons > 0;
 
+  // Дата и время для единого Header
+  const getDateStr = (d) => {
+    const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+  };
+  const getTimeStr = (d) => `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+
   // ------ Modal handlers ------
   const openModal = (day, lesson) => {
     const existing = data[day]?.[lesson];
@@ -435,235 +443,242 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   };
 
   return (
-    <div className="flex flex-col h-full animate-fade-in px-4 sm:px-6 max-w-5xl mx-auto w-full">
-      {/* Schedule header — sidebar toggle + title + trash button */}
-      <div className="flex-shrink-0 flex items-start gap-4 pt-14 sm:pt-16 pb-5">
-        <button
-          onClick={onToggleSidebar}
-          className={`p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 flex-shrink-0 ${sidebarOpen ? "opacity-0 pointer-events-none" : ""}`}
-          aria-label="Toggle sidebar"
-        >
-          <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">Study Schedule</h1>
-              <p className="text-sm text-zinc-500 mt-1">Plan your weekly lessons</p>
-            </div>
+    <div className="flex flex-col h-full animate-fade-in">
+      {/* Единый закреплённый Header */}
+      <div className="sticky top-0 z-20 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-4 py-3">
             <button
-              onClick={() => setIsLessonTrashOpen(true)}
-              className="relative p-2 bg-zinc-800/70 hover:bg-zinc-700/70 rounded-xl transition-all duration-200 flex-shrink-0"
-              title="Lesson Trash"
+              onClick={onToggleSidebar}
+              className={`p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 flex-shrink-0 ${sidebarOpen ? "opacity-0 pointer-events-none" : ""}`}
+              aria-label="Toggle sidebar"
             >
-              <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              {lessonTrash.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                  {lessonTrash.length}
-                </span>
-              )}
+              <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
             </button>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Study Schedule</h1>
+            <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => setIsLessonTrashOpen(true)}
+                className="relative p-2 bg-zinc-800/70 hover:bg-zinc-700/70 rounded-xl transition-all duration-200"
+                title="Lesson Trash"
+              >
+                <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                {lessonTrash.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+                    {lessonTrash.length}
+                  </span>
+                )}
+              </button>
+              <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap">📅 {getDateStr(now)}</span>
+              <span className="text-xs text-zinc-400 font-mono whitespace-nowrap">🕒 {getTimeStr(now)}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Next Lesson — живой виджет */}
-      {showNextBlock && (
-        <div className="flex-shrink-0 mb-5 rounded-xl border border-zinc-700/30 bg-zinc-800/30 px-5 py-4">
-          <p className="text-xs text-zinc-500 mb-2">Next Lesson</p>
+      {/* Scrollable контент */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-8 space-y-5">
 
-          {nextLessonInfo && (nextLessonInfo.status === 'upcoming' || nextLessonInfo.status === 'inProgress') ? (
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-base font-bold text-white truncate">{nextLessonInfo.lesson.name}</p>
-                <p className="text-sm text-zinc-400 mt-0.5">
-                  {nextLessonInfo.lesson.startTime} — {nextLessonInfo.lesson.endTime}
-                </p>
-                {nextLessonInfo.lesson.room && (
-                  <p className="text-sm text-zinc-500 mt-0.5">Room {nextLessonInfo.lesson.room}</p>
-                )}
-              </div>
-              <div className="flex-shrink-0">
-                <p key={badge} className={`text-xs font-medium whitespace-nowrap animate-fade-in ${badgeColor}`}>
-                  {badge}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-zinc-500">No more lessons today</p>
-              {(nextLessonInfo && nextLessonInfo.status === 'noMoreToday') && (
-                <p className="text-xs text-zinc-600 font-medium">✓ Done</p>
+          {/* Next Lesson — живой виджет */}
+          {showNextBlock && (
+            <div className="rounded-xl border border-zinc-700/30 bg-zinc-800/30 px-5 py-4">
+              <p className="text-xs text-zinc-500 mb-2">Next Lesson</p>
+
+              {nextLessonInfo && (nextLessonInfo.status === 'upcoming' || nextLessonInfo.status === 'inProgress') ? (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-bold text-white truncate">{nextLessonInfo.lesson.name}</p>
+                    <p className="text-sm text-zinc-400 mt-0.5">
+                      {nextLessonInfo.lesson.startTime} — {nextLessonInfo.lesson.endTime}
+                    </p>
+                    {nextLessonInfo.lesson.room && (
+                      <p className="text-sm text-zinc-500 mt-0.5">Room {nextLessonInfo.lesson.room}</p>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0">
+                    <p key={badge} className={`text-xs font-medium whitespace-nowrap animate-fade-in ${badgeColor}`}>
+                      {badge}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-zinc-500">No more lessons today</p>
+                  {(nextLessonInfo && nextLessonInfo.status === 'noMoreToday') && (
+                    <p className="text-xs text-zinc-600 font-medium">✓ Done</p>
+                  )}
+                </div>
               )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Статистика */}
-      <div className="grid grid-cols-3 gap-3 mb-5 flex-shrink-0">
-        <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
-          <p className="text-xs text-zinc-500">Total lessons</p>
-          <p className="text-xl font-bold text-white mt-0.5">{totalLessons}</p>
-        </div>
-        <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
-          <p className="text-xs text-zinc-500">Busiest day</p>
-          <p className="text-xl font-bold text-emerald-400 mt-0.5">{busiestDay}</p>
-        </div>
-        <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
-          <p className="text-xs text-zinc-500">Free slots</p>
-          <p className="text-xl font-bold text-white mt-0.5">{freeSlots}</p>
-        </div>
-      </div>
-
-      {/* Grid контейнер */}
-      <div className="flex-1 relative min-h-0 rounded-xl border border-zinc-800/40 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80 backdrop-blur-sm overflow-hidden">
-        {/* Scroll контейнер */}
-        <div className="absolute inset-0 overflow-auto rounded-xl">
-          {/* Сетка расписания */}
-          <div className="grid grid-cols-[56px_repeat(6,1fr)] gap-px bg-zinc-800/20 min-w-[900px]">
-
-            {/* Corner cell */}
-            <div className="sticky top-0 left-0 z-30 h-12 bg-zinc-950 rounded-tl-xl" />
-
-            {/* Header дней недели */}
-            {DAYS.map((day, i) => {
-              const isToday = i === currentDayIndex;
-              return (
-                <div
-                  key={day}
-                  className={`sticky top-0 z-20 h-12 flex items-center justify-center text-sm font-semibold transition-colors duration-200
-                    ${isToday
-                      ? "text-emerald-300 bg-emerald-500/8 border-b-2 border-emerald-500/40"
-                      : "text-zinc-400 bg-zinc-950 border-b border-zinc-800/50"
-                    }`}
-                >
-                  {day}
-                </div>
-              );
-            })}
-
-            {/* Строки расписания */}
-            {LESSONS.map((lesson) => (
-              <React.Fragment key={lesson}>
-                {/* Номер пары */}
-                <div className="sticky left-0 z-10 flex items-center justify-center h-[72px] bg-zinc-950 text-xs text-zinc-500 font-mono border-b border-zinc-800/30">
-                  {lesson}
-                </div>
-
-                {/* Ячейки по дням */}
-                {DAYS.map((_, dayIdx) => {
-                  const lessonData = getLesson(dayIdx, lesson);
-                  const isOver = isDragTarget(dayIdx, lesson);
-                  const isDragging = isDragSource(dayIdx, lesson);
-                  const cellKey = `${dayIdx}-${lesson}`;
-                  const isNew = newCells.has(cellKey);
-                  const isDeleting = deletingCells.has(cellKey);
-                  const isCurrentDay = dayIdx === currentDayIndex;
-
-                  return (
-                    <button
-                      key={cellKey}
-                      onClick={() => openModal(dayIdx, lesson)}
-                      draggable={!!lessonData && !isDeleting}
-                      onDragStart={lessonData ? (e) => handleDragStart(dayIdx, lesson, e) : undefined}
-                      onDragOver={handleDragOver}
-                      onDragEnter={() => setDragTarget({ day: dayIdx, lesson })}
-                      onDragLeave={() => setDragTarget(null)}
-                      onDrop={(e) => handleDrop(dayIdx, lesson, e)}
-                      onDragEnd={handleDragEnd}
-                      className={`
-                        relative group min-h-[72px] bg-zinc-950/80 p-3 text-left
-                        border-b border-r border-zinc-800/25
-                        transition-all duration-150
-                        ${lessonData
-                          ? "hover:bg-zinc-900 hover:border-emerald-500/40 hover:shadow-[0_0_12px_rgba(16,185,129,0.12)] hover:scale-[1.02] hover:z-10"
-                          : "hover:bg-zinc-900/60 hover:border-emerald-500/25 hover:shadow-[0_0_8px_rgba(16,185,129,0.08)] hover:scale-[1.02] hover:z-10"
-                        }
-                        ${isOver
-                          ? "ring-2 ring-emerald-500/50 bg-emerald-500/5 border-emerald-500/60 scale-[1.03] shadow-xl z-10"
-                          : ""
-                        }
-                        ${isDragging
-                          ? "opacity-30 scale-[0.97]"
-                          : ""
-                        }
-                        ${isCurrentDay && lessonData && !isDeleting
-                          ? "bg-emerald-500/[0.04]"
-                          : ""
-                        }
-                        ${isNew
-                          ? "animate-fade-in"
-                          : ""
-                        }
-                        ${isDeleting
-                          ? "opacity-0 scale-95 pointer-events-none"
-                          : ""
-                        }
-                      `}
-                    >
-                      {lessonData ? (
-                        <>
-                          <div className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-sm ${COLOR_MAP[lessonData.color]?.accent || "bg-emerald-500/70"}`} />
-
-                          <div className="pl-3 min-w-0">
-                            <div className={`text-sm font-semibold leading-tight truncate ${COLOR_MAP[lessonData.color]?.text || "text-white"}`}>
-                              {lessonData.name}
-                            </div>
-                            {lessonData.startTime && lessonData.endTime && (
-                              <div className="text-[11px] text-zinc-400 font-medium mt-0.5">
-                                {lessonData.startTime} — {lessonData.endTime}
-                              </div>
-                            )}
-                            {lessonData.room && (
-                              <div className="text-xs text-zinc-500 mt-0.5 truncate">{lessonData.room}</div>
-                            )}
-                            {lessonData.teacher && (
-                              <div className="text-xs text-zinc-600 truncate">{lessonData.teacher}</div>
-                            )}
-                            {isCurrentDay && (
-                              <div className="text-[10px] text-emerald-500/70 font-medium mt-1">Today</div>
-                            )}
-                          </div>
-
-                          <div className="absolute top-1 right-1 text-xs text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity duration-150">✏️</div>
-                        </>
-                      ) : (
-                        <div className="flex items-center justify-center h-full cursor-pointer">
-                          <span className="text-zinc-600 text-base opacity-0 group-hover:opacity-60 transition-opacity duration-200">+</span>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Drag & Drop hint */}
-          <div className="px-4 py-3 text-center">
-            <p className="text-xs text-zinc-600">💡 Drag lessons between cells to quickly reorganize your schedule</p>
-          </div>
-        </div>
-
-        {/* Empty state overlay */}
-        {!hasAnyLesson && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="text-center bg-zinc-950/50 backdrop-blur-[2px] px-8 py-6 rounded-2xl border border-zinc-800/30 animate-fade-in">
-              <div className="text-5xl mb-4 opacity-60">📚</div>
-              <h3 className="text-lg font-semibold text-zinc-300 mb-2">No lessons yet</h3>
-              <p className="text-sm text-zinc-500 mb-4">Click any cell to add your first lesson</p>
-              <button
-                onClick={() => openModal(0, 1)}
-                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 hover:scale-105 hover:shadow-emerald-500/40 active:scale-95 text-white px-5 py-2 rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-emerald-500/25 pointer-events-auto"
-              >
-                Add lesson
-              </button>
+          {/* Статистика */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
+              <p className="text-xs text-zinc-500">Total lessons</p>
+              <p className="text-xl font-bold text-white mt-0.5">{totalLessons}</p>
+            </div>
+            <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
+              <p className="text-xs text-zinc-500">Busiest day</p>
+              <p className="text-xl font-bold text-emerald-400 mt-0.5">{busiestDay}</p>
+            </div>
+            <div className="bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30">
+              <p className="text-xs text-zinc-500">Free slots</p>
+              <p className="text-xl font-bold text-white mt-0.5">{freeSlots}</p>
             </div>
           </div>
-        )}
+
+          {/* Grid контейнер */}
+          <div className="min-h-[500px] relative rounded-xl border border-zinc-800/40 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80 backdrop-blur-sm overflow-hidden">
+            {/* Scroll контейнер */}
+            <div className="absolute inset-0 overflow-auto rounded-xl">
+              {/* Сетка расписания */}
+              <div className="grid grid-cols-[56px_repeat(6,1fr)] gap-px bg-zinc-800/20 min-w-[900px]">
+
+                {/* Corner cell */}
+                <div className="sticky top-0 left-0 z-30 h-12 bg-zinc-950 rounded-tl-xl" />
+
+                {/* Header дней недели */}
+                {DAYS.map((day, i) => {
+                  const isToday = i === currentDayIndex;
+                  return (
+                    <div
+                      key={day}
+                      className={`sticky top-0 z-20 h-12 flex items-center justify-center text-sm font-semibold transition-colors duration-200
+                        ${isToday
+                          ? "text-emerald-300 bg-emerald-500/8 border-b-2 border-emerald-500/40"
+                          : "text-zinc-400 bg-zinc-950 border-b border-zinc-800/50"
+                        }`}
+                    >
+                      {day}
+                    </div>
+                  );
+                })}
+
+                {/* Строки расписания */}
+                {LESSONS.map((lesson) => (
+                  <React.Fragment key={lesson}>
+                    {/* Номер пары */}
+                    <div className="sticky left-0 z-10 flex items-center justify-center h-[72px] bg-zinc-950 text-xs text-zinc-500 font-mono border-b border-zinc-800/30">
+                      {lesson}
+                    </div>
+
+                    {/* Ячейки по дням */}
+                    {DAYS.map((_, dayIdx) => {
+                      const lessonData = getLesson(dayIdx, lesson);
+                      const isOver = isDragTarget(dayIdx, lesson);
+                      const isDragging = isDragSource(dayIdx, lesson);
+                      const cellKey = `${dayIdx}-${lesson}`;
+                      const isNew = newCells.has(cellKey);
+                      const isDeleting = deletingCells.has(cellKey);
+                      const isCurrentDay = dayIdx === currentDayIndex;
+
+                      return (
+                        <button
+                          key={cellKey}
+                          onClick={() => openModal(dayIdx, lesson)}
+                          draggable={!!lessonData && !isDeleting}
+                          onDragStart={lessonData ? (e) => handleDragStart(dayIdx, lesson, e) : undefined}
+                          onDragOver={handleDragOver}
+                          onDragEnter={() => setDragTarget({ day: dayIdx, lesson })}
+                          onDragLeave={() => setDragTarget(null)}
+                          onDrop={(e) => handleDrop(dayIdx, lesson, e)}
+                          onDragEnd={handleDragEnd}
+                          className={`
+                            relative group min-h-[72px] bg-zinc-950/80 p-3 text-left
+                            border-b border-r border-zinc-800/25
+                            transition-all duration-150
+                            ${lessonData
+                              ? "hover:bg-zinc-900 hover:border-emerald-500/40 hover:shadow-[0_0_12px_rgba(16,185,129,0.12)] hover:scale-[1.02] hover:z-10"
+                              : "hover:bg-zinc-900/60 hover:border-emerald-500/25 hover:shadow-[0_0_8px_rgba(16,185,129,0.08)] hover:scale-[1.02] hover:z-10"
+                            }
+                            ${isOver
+                              ? "ring-2 ring-emerald-500/50 bg-emerald-500/5 border-emerald-500/60 scale-[1.03] shadow-xl z-10"
+                              : ""
+                            }
+                            ${isDragging
+                              ? "opacity-30 scale-[0.97]"
+                              : ""
+                            }
+                            ${isCurrentDay && lessonData && !isDeleting
+                              ? "bg-emerald-500/[0.04]"
+                              : ""
+                            }
+                            ${isNew
+                              ? "animate-fade-in"
+                              : ""
+                            }
+                            ${isDeleting
+                              ? "opacity-0 scale-95 pointer-events-none"
+                              : ""
+                            }
+                          `}
+                        >
+                          {lessonData ? (
+                            <>
+                              <div className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-sm ${COLOR_MAP[lessonData.color]?.accent || "bg-emerald-500/70"}`} />
+
+                              <div className="pl-3 min-w-0">
+                                <div className={`text-sm font-semibold leading-tight truncate ${COLOR_MAP[lessonData.color]?.text || "text-white"}`}>
+                                  {lessonData.name}
+                                </div>
+                                {lessonData.startTime && lessonData.endTime && (
+                                  <div className="text-[11px] text-zinc-400 font-medium mt-0.5">
+                                    {lessonData.startTime} — {lessonData.endTime}
+                                  </div>
+                                )}
+                                {lessonData.room && (
+                                  <div className="text-xs text-zinc-500 mt-0.5 truncate">{lessonData.room}</div>
+                                )}
+                                {lessonData.teacher && (
+                                  <div className="text-xs text-zinc-600 truncate">{lessonData.teacher}</div>
+                                )}
+                                {isCurrentDay && (
+                                  <div className="text-[10px] text-emerald-500/70 font-medium mt-1">Today</div>
+                                )}
+                              </div>
+
+                              <div className="absolute top-1 right-1 text-xs text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity duration-150">✏️</div>
+                            </>
+                          ) : (
+                            <div className="flex items-center justify-center h-full cursor-pointer">
+                              <span className="text-zinc-600 text-base opacity-0 group-hover:opacity-60 transition-opacity duration-200">+</span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {/* Drag & Drop hint */}
+              <div className="px-4 py-3 text-center">
+                <p className="text-xs text-zinc-600">💡 Drag lessons between cells to quickly reorganize your schedule</p>
+              </div>
+            </div>
+
+            {/* Empty state overlay */}
+            {!hasAnyLesson && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <div className="text-center bg-zinc-950/50 backdrop-blur-[2px] px-8 py-6 rounded-2xl border border-zinc-800/30 animate-fade-in">
+                  <div className="text-5xl mb-4 opacity-60">📚</div>
+                  <h3 className="text-lg font-semibold text-zinc-300 mb-2">No lessons yet</h3>
+                  <p className="text-sm text-zinc-500 mb-4">Click any cell to add your first lesson</p>
+                  <button
+                    onClick={() => openModal(0, 1)}
+                    className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 hover:scale-105 hover:shadow-emerald-500/40 active:scale-95 text-white px-5 py-2 rounded-xl font-medium text-sm transition-all duration-150 shadow-lg shadow-emerald-500/25 pointer-events-auto"
+                  >
+                    Add lesson
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Модальное окно создания/редактирования урока */}
