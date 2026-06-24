@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, Notification } = require('electron')
 const path = require('path')
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -74,7 +74,8 @@ function createWindow() {
     backgroundColor: '#000000',
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   })
 
@@ -100,6 +101,31 @@ function createWindow() {
     console.error('Failed to load:', errorDescription)
   })
 }
+
+// ----- IPC: Notification System -----
+ipcMain.on('show-notification', (event, data) => {
+  try {
+    const notification = new Notification({
+      title: data.title || 'Notification',
+      body: data.body || '',
+      silent: true,
+    })
+    notification.show()
+  } catch (err) {
+    console.error('Notification error:', err)
+  }
+})
+
+// ----- IPC: Notification Sound (stub — ready for audio file) -----
+ipcMain.on('play-notification-sound', () => {
+  // TODO: Play sound file when audio asset is provided
+  // Example:
+  // const soundPath = path.join(__dirname, '../public/sounds/notification.mp3')
+  // if (require('fs').existsSync(soundPath)) {
+  //   const player = new (require('sound-play'))(soundPath, 0.5)
+  //   player.play()
+  // }
+})
 
 app.whenReady().then(() => {
   createMenu()

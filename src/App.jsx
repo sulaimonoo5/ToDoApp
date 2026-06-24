@@ -13,6 +13,7 @@ import WelcomeScreen from "./components/WelcomeScreen";
 import LeftIcon from "./icons/LeftIcon";
 import RightIcon from "./icons/RightIcon";
 import ChevronIcon from "./icons/ChevronIcon";
+import * as notificationService from "./services/notificationService";
 
 // Ключи для localStorage
 const LISTS_KEY = "todoLists";
@@ -263,6 +264,12 @@ function App() {
   useEffect(() => {
     localStorage.setItem(FILTER_KEY, filter);
   }, [filter]);
+
+  // Запуск Notification Service (читает localStorage напрямую)
+  useEffect(() => {
+    notificationService.start();
+    return () => notificationService.stop();
+  }, []);
 
   // Отключение pull-to-refresh на мобильных — CSS overscroll-behavior в index.html + body overflow:hidden
 

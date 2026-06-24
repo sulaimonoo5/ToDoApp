@@ -11,6 +11,8 @@ import RightIcon from "../icons/RightIcon";
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LESSONS = Array.from({ length: 12 }, (_, i) => i + 1);
 const TRASH_DAYS = 30;
+const SCHEDULE_KEY = "scheduleData";
+const LESSON_TRASH_KEY = "lessonTrash";
 
 const COLORS = ["emerald", "blue", "amber", "purple", "red", "pink", "cyan", "orange"];
 const COLOR_MAP = {
@@ -57,33 +59,39 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   const [isLessonTrashOpen, setIsLessonTrashOpen] = useState(false);
   const [recentlyDeletedLesson, setRecentlyDeletedLesson] = useState(null);
   const lessonUndoTimeoutRef = useRef(null);
+  const isLoadingRef = useRef(true);
 
-  // ------ localStorage: scheduleData ------
+  // ------ localStorage: загрузка scheduleData и lessonTrash при старте ------
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("scheduleData");
-      if (saved) setData(JSON.parse(saved));
+      const savedSchedule = localStorage.getItem(SCHEDULE_KEY);
+      if (savedSchedule) setData(JSON.parse(savedSchedule));
     } catch {}
-  }, []);
 
-  useEffect(() => {
-    localStorage.setItem("scheduleData", JSON.stringify(data));
-  }, [data]);
-
-  // ------ localStorage: lessonTrash ------
-  useEffect(() => {
     try {
-      const saved = localStorage.getItem("lessonTrash");
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      const savedTrash = localStorage.getItem(LESSON_TRASH_KEY);
+      if (savedTrash) {
+        const parsed = JSON.parse(savedTrash);
         const valid = parsed.filter((t) => !isTrashExpired(t.deletedAt));
         setLessonTrash(valid);
       }
     } catch {}
+
+    isLoadingRef.current = false;
   }, []);
 
+  // ------ localStorage: сохранение scheduleData ------
   useEffect(() => {
-    localStorage.setItem("lessonTrash", JSON.stringify(lessonTrash));
+    if (!isLoadingRef.current) {
+      localStorage.setItem(SCHEDULE_KEY, JSON.stringify(data));
+    }
+  }, [data]);
+
+  // ------ localStorage: сохранение lessonTrash ------
+  useEffect(() => {
+    if (!isLoadingRef.current) {
+      localStorage.setItem(LESSON_TRASH_KEY, JSON.stringify(lessonTrash));
+    }
   }, [lessonTrash]);
 
   const isTrashExpired = (deletedAt) => {
@@ -245,23 +253,24 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     // Показываем Undo toast
     setRecentlyDeletedLesson(trashItem);
 
-    // Анимация удаления
+    // Анимация удаления + НЕМЕДЛЕННОЕ удаление из data
     setDeletingCells((prev) => new Set(prev).add(key));
-
-    setTimeout(() => {
-      setData((prev) => {
-        const newData = { ...prev };
-        if (newData[selectedCell.day]) {
-          const newDay = { ...newData[selectedCell.day] };
-          delete newDay[selectedCell.lesson];
-          if (Object.keys(newDay).length === 0) {
-            delete newData[selectedCell.day];
-          } else {
-            newData[selectedCell.day] = newDay;
-          }
+    setData((prev) => {
+      const newData = { ...prev };
+      if (newData[selectedCell.day]) {
+        const newDay = { ...newData[selectedCell.day] };
+        delete newDay[selectedCell.lesson];
+        if (Object.keys(newDay).length === 0) {
+          delete newData[selectedCell.day];
+        } else {
+          newData[selectedCell.day] = newDay;
         }
-        return newData;
-      });
+      }
+      return newData;
+    });
+
+    // Убираем анимацию через 200мс
+    setTimeout(() => {
       setDeletingCells((prev) => {
         const next = new Set(prev);
         next.delete(key);
@@ -792,24 +801,24 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                       className="flex items-center justify-between bg-zinc-800/50 px-4 py-3 rounded-xl flex-shrink-0"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-semibold truncate">{item.name}</p>
-                        <p className="text-zinc-400 text-xs mt-0.5">
+                        <p className="text-white text-sm truncate">{item.name}</p>
+                        <p className="text-zinc-500 text-xs mt-1">
                           {DAYS[item.day]} • Lesson {item.lesson}
                         </p>
                         {item.startTime && item.endTime && (
-                          <p className="text-zinc-500 text-xs mt-0.5">
+                          <p className="text-zinc-500 text-xs">
                             {item.startTime} — {item.endTime}
                           </p>
                         )}
                         {item.room && (
                           <p className="text-zinc-500 text-xs">Room {item.room}</p>
                         )}
-                        <p className="text-zinc-600 text-xs mt-1">{daysLeft} days left</p>
+                        <p className="text-zinc-500 text-xs mt-1">{daysLeft} days left</p>
                       </div>
                       <div className="flex gap-2 ml-4 flex-shrink-0">
                         <button
                           onClick={() => restoreLesson(item)}
-                          className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 active:scale-95 text-white px-4 py-1.5 rounded-xl font-medium text-xs transition-all duration-150 shadow-lg shadow-emerald-500/25"
+                          className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-lg hover:bg-emerald-500/30 transition-all"
                         >
                           Restore
                         </button>
