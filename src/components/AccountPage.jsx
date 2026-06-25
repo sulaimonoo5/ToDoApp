@@ -69,7 +69,7 @@ function AccountPage({ onBack }) {
         statistics: JSON.parse(localStorage.getItem("dailyStreak") || "{}"),
       };
       const token = localStorage.getItem("access_token");
-      const res = await fetch("http://localhost:3001/api/data/import", {
+      const res = await fetch("/api/data/import", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
