@@ -14,6 +14,7 @@ function Sidebar({ isOpen, onClose, currentPage, onPageChange }) {
     { name: "Tasks", icon: "✅", page: "tasks" },
     { name: "Schedule", icon: "📚", page: "schedule" },
     { name: "Goals", icon: "🎯", page: "goals" },
+    { name: "Account", icon: "👤", page: "account" },
   ];
 
   // Обработчик клика: переключает страницу и закрывает sidebar на мобильных

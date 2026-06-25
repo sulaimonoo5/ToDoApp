@@ -1,0 +1,9 @@
+{
+  "name": "todo-app-server",
+  "version": "1.0.0",
+  "description": "Backend for To-Do App (installed from root package.json)",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  }
+}

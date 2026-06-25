@@ -1,11 +1,12 @@
 {
   "name": "todo-app",
   "version": "1.0.0",
-  "description": "Minimal Electron + React To-Do App",
-  "main": "electron/main.js",
+  "description": "All-in-One Life Management App",
+  "main": "server/index.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "start": "node server/index.js",
     "electron": "electron .",
     "electron:dev": "NODE_ENV=development electron .",
     "app": "npm run build && electron .",
@@ -13,6 +14,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

@@ -11,9 +11,12 @@ import Sidebar from "./components/Sidebar";
 import Schedule from "./components/Schedule";
 import Home from "./components/Home";
 import Goals from "./components/Goals";
+import AccountPage from "./components/AccountPage";
+import LoginPage from "./components/LoginPage";
+import RegisterPage from "./components/RegisterPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import WelcomeScreen from "./components/WelcomeScreen";
-import LeftIcon from "./icons/LeftIcon";
+import { useAuth } from "./context/AuthContext";
 import RightIcon from "./icons/RightIcon";
 import ChevronIcon from "./icons/ChevronIcon";
 import * as notificationService from "./services/notificationService";
@@ -68,6 +71,8 @@ const getTasksFromLists = (lists, currentListId) => {
 };
 
 function App() {
+  const { user, loading } = useAuth();
+  const [authPage, setAuthPage] = useState("login");
   // Списки задач
   const [lists, setLists] = useState([]);
   // Goals
@@ -552,6 +557,17 @@ function App() {
 
   return (
     <ErrorBoundary>
+    {loading ? (
+      <div className="h-screen flex items-center justify-center bg-black">
+        <div className="text-zinc-400 text-sm animate-pulse">Loading...</div>
+      </div>
+    ) : !user ? (
+      authPage === "register" ? (
+        <RegisterPage onNavigate={setAuthPage} />
+      ) : (
+        <LoginPage onNavigate={setAuthPage} />
+      )
+    ) : (
     <div className="h-screen overflow-hidden bg-black">
       {/* WelcomeScreen — только при полном запуске, не при переключении страниц */}
       {showWelcome && (
@@ -613,7 +629,9 @@ function App() {
                             <div key={list.id} className={`flex items-center justify-between px-4 py-2.5 text-sm transition-all duration-200 min-w-0 overflow-hidden ${list.id === currentListId ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-300 hover:bg-zinc-700"}`}>
                               {editingListId === list.id ? (
                                 <input type="text" value={editingListName} onChange={(e) => setEditingListName(e.target.value.slice(0, 50))} onKeyDown={(e) => { if (e.key === "Enter") saveEditList(); if (e.key === "Escape") { setEditingListId(null); setEditingListName(""); } }} onBlur={saveEditList} autoFocus className="flex-1 bg-zinc-700/50 px-2 py-1 rounded text-white text-sm focus:outline-none" />
-                              ) : (
+        ) : currentPage === "account" ? (
+          <AccountPage onBack={() => setCurrentPage("home")} />
+        ) : (
                                 <button onClick={() => switchToList(list.id)} className="flex-1 text-left truncate min-w-0">{list.name}</button>
                               )}
                               {list.id === currentListId && (
@@ -838,6 +856,7 @@ function App() {
         </div>
       )}
     </div>
+    )}
     </ErrorBoundary>
   );
 }
