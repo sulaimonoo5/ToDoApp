@@ -1,5 +1,4 @@
 const express = require("express");
-const pool = require("../config/db");
 const { authMiddleware } = require("../middleware/auth");
 
 const router = express.Router();
@@ -8,33 +7,27 @@ router.post("/import", authMiddleware, async (req, res) => {
   try {
     const userId = req.userId;
     const { tasks, goals, schedule, statistics } = req.body;
+    const pool = req.pool;
 
-    // store JSON blobs per user for future sync
-    await pool.query(
-      `INSERT INTO user_data (user_id, data_type, data) VALUES ($1, 'tasks', $2)
-       ON CONFLICT (user_id, data_type) DO UPDATE SET data = $2, updated_at = NOW()`,
-      [userId, JSON.stringify(tasks)]
-    );
-    await pool.query(
-      `INSERT INTO user_data (user_id, data_type, data) VALUES ($1, 'goals', $2)
-       ON CONFLICT (user_id, data_type) DO UPDATE SET data = $2, updated_at = NOW()`,
-      [userId, JSON.stringify(goals)]
-    );
-    await pool.query(
-      `INSERT INTO user_data (user_id, data_type, data) VALUES ($1, 'schedule', $2)
-       ON CONFLICT (user_id, data_type) DO UPDATE SET data = $2, updated_at = NOW()`,
-      [userId, JSON.stringify(schedule)]
-    );
-    await pool.query(
-      `INSERT INTO user_data (user_id, data_type, data) VALUES ($1, 'statistics', $2)
-       ON CONFLICT (user_id, data_type) DO UPDATE SET data = $2, updated_at = NOW()`,
-      [userId, JSON.stringify(statistics)]
-    );
+    const types = [
+      { type: "tasks", data: tasks },
+      { type: "goals", data: goals },
+      { type: "schedule", data: schedule },
+      { type: "statistics", data: statistics },
+    ];
 
-    res.json({ message: "Data imported successfully" });
+    for (const { type, data } of types) {
+      await pool.query(
+        `INSERT INTO user_data (user_id, data_type, data) VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, data_type) DO UPDATE SET data = $3, updated_at = NOW()`,
+        [userId, type, JSON.stringify(data)]
+      );
+    }
+
+    res.json({ message: "Data imported" });
   } catch (err) {
     console.error("Import error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: err.message || "Server error" });
   }
 });
 
