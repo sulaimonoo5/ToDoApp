@@ -101,14 +101,8 @@ function App() {
   // Состояние sidebar (открыт/закрыт)
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Текущая страница: "home" | "tasks" | "schedule"
-  const [currentPage, setCurrentPage] = useState(() => {
-    try {
-      const saved = localStorage.getItem(CURRENT_PAGE_KEY);
-      return saved === "home" || saved === "tasks" || saved === "schedule" ? saved : "home";
-    } catch {
-      return "home";
-    }
-  });
+  // Всегда стартует с Home при новом запуске, внутри сессии сохраняет последнюю выбранную страницу
+  const [currentPage, setCurrentPage] = useState("home");
   // Флаг: идёт ли загрузка из localStorage
   const isLoadingRef = useRef(true);
   // Часы для единого Header
