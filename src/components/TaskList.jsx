@@ -6,7 +6,7 @@
 import React, { useState, useRef } from 'react'
 import TaskItem from './TaskItem'
 
-function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile }) {
+function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile, goals = [] }) {
   // ID перетаскиваемого элемента (для стилизации)
   const [draggingId, setDraggingId] = useState(null)
   // ID элемента-цели (для отображения индикатора сброса)
@@ -113,6 +113,7 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile }) {
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 isMobile={isMobile}
+                goals={goals}
               />
             </div>
           ))}
@@ -143,6 +144,7 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile }) {
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 isMobile={isMobile}
+                goals={goals}
               />
             </div>
           ))}

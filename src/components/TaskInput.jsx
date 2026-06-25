@@ -4,53 +4,45 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 
-function TaskInput({ onAdd }) {
-  // Текст, вводимый пользователем
+function TaskInput({ onAdd, goals = [] }) {
   const [text, setText] = useState('')
-  // Приоритет задачи
   const [priority, setPriority] = useState('low')
-  // Ссылка на input для автофокуса
+  const [goalId, setGoalId] = useState('')
   const inputRef = useRef(null)
 
-  // Автофокус на input при загрузке
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
-  // Капитализация: первая буква заглавная, остальные строчные
   const capitalize = (str) => {
     if (!str) return ''
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
   }
 
-  // Обработка ввода с автокапитализацией первой буквы
   const handleChange = (e) => {
     const value = e.target.value
     const cursorPos = e.target.selectionStart
     const capitalized = capitalize(value)
     setText(capitalized)
-    // Возвращаем курсор на место (иначе он прыгнет в конец)
     setTimeout(() => {
       inputRef.current?.setSelectionRange(cursorPos, cursorPos)
     }, 0)
   }
 
-  // Обработка отправки формы (Enter или кнопка)
   const handleSubmit = (e) => {
     e.preventDefault()
     const trimmed = text.trim()
     if (trimmed) {
-      // Передаём текст и приоритет в App для добавления в текущий список
-      onAdd(trimmed, priority)
-      // Сбрасываем поля после добавления
+      onAdd(trimmed, priority, goalId || null)
       setText('')
       setPriority('low')
+      setGoalId('')
       inputRef.current?.focus()
     }
   }
 
   return (
-    <div className="sticky top-4 z-10 mb-4 sm:mb-6">
+    <div className="mb-4 sm:mb-6">
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-2 sm:gap-3 bg-zinc-800/70 backdrop-blur-sm rounded-2xl p-1.5 sm:p-2 shadow-xl shadow-black/20 border border-zinc-700/30">
           <div className="flex gap-2 sm:gap-3">
@@ -69,8 +61,7 @@ function TaskInput({ onAdd }) {
               Add
             </button>
           </div>
-          {/* Селектор приоритета: три кнопки low/medium/high */}
-          <div className="flex items-center gap-2 px-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-2">
             <span className="text-zinc-500 text-xs">Priority:</span>
             {['low', 'medium', 'high'].map((p) => (
               <button
@@ -88,6 +79,21 @@ function TaskInput({ onAdd }) {
                 {p.charAt(0).toUpperCase() + p.slice(1)}
               </button>
             ))}
+            {goals.length > 0 && (
+              <>
+                <span className="text-zinc-500 text-xs ml-2">Goal:</span>
+                <select
+                  value={goalId}
+                  onChange={(e) => setGoalId(e.target.value)}
+                  className="bg-zinc-700/50 text-zinc-300 text-xs px-2 py-1 rounded-lg border border-zinc-600/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                >
+                  <option value="">None</option>
+                  {goals.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
         </div>
       </form>

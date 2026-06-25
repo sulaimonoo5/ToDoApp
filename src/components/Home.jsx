@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from "react";
 import RightIcon from "../icons/RightIcon";
+import { getStreak } from "../services/streakService";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -77,8 +78,10 @@ function Home({
   sidebarOpen,
   tasks,
   lists,
+  goals = [],
   onPageChange,
   onToggle,
+  now: propNow,
 }) {
   const [now, setNow] = useState(() => new Date());
   const [quote] = useState(
@@ -88,11 +91,16 @@ function Home({
     () => FOOTER_QUOTES[Math.floor(Math.random() * FOOTER_QUOTES.length)],
   );
 
-  // Таймер обновления каждые 60 секунд
   useEffect(() => {
+    if (propNow) setNow(propNow);
+  }, [propNow]);
+
+  // Таймер обновления каждые 60 секунд (резерв, если propNow не передан)
+  useEffect(() => {
+    if (propNow) return;
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
-  }, []);
+  }, [propNow]);
 
   const greeting = getGreeting();
   const currentDayIndex = getTodayDayIndex();
@@ -194,6 +202,43 @@ function Home({
   };
   const getTimeStr = (d) => `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 
+  // Streak
+  const streakData = getStreak();
+
+  // Weekly statistics
+  const getWeekRange = () => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { monday, sunday };
+  };
+
+  const { monday, sunday } = getWeekRange();
+  const allTasksForStats = lists.reduce((acc, list) => [...acc, ...list.tasks], []);
+  const weeklyTasksCompleted = allTasksForStats.filter((t) => {
+    if (!t.completed || !t.completedAt) return false;
+    const d = new Date(t.completedAt);
+    return d >= monday && d <= sunday;
+  }).length;
+
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const dayActivity = dayNames.map((_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const count = allTasksForStats.filter((t) => {
+      if (!t.completed || !t.completedAt) return false;
+      return t.completedAt.slice(0, 10) === dateStr;
+    }).length;
+    return { day: dayNames[i], count };
+  });
+  const maxActivity = Math.max(...dayActivity.map((d) => d.count), 1);
+  const weeklyCompletionRate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+
   const priorityColors = {
     high: "text-red-400",
     medium: "text-amber-400",
@@ -229,6 +274,12 @@ function Home({
             <p className="text-zinc-600 text-xs sm:text-sm mt-1.5">
               {dailySummary()}
             </p>
+            {streakData.currentStreak > 0 && (
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-base">🔥</span>
+                <span className="text-sm font-semibold text-orange-400">{streakData.currentStreak} Day Streak</span>
+              </div>
+            )}
           </div>
           {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -264,6 +315,77 @@ function Home({
               )}
             </div>
           </div>
+
+          {/* Weekly Statistics */}
+          <div className="bg-zinc-800/30 rounded-xl border border-zinc-700/30 px-5 py-4">
+            <p className="text-xs text-zinc-500 mb-3">This Week</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div>
+                <p className="text-xl font-bold text-white">{weeklyTasksCompleted}</p>
+                <p className="text-xs text-zinc-500">Tasks Completed</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-white">—</p>
+                <p className="text-xs text-zinc-500">Lessons Attended</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-orange-400">{streakData.currentStreak}</p>
+                <p className="text-xs text-zinc-500">Current Streak</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-emerald-400">{weeklyCompletionRate}%</p>
+                <p className="text-xs text-zinc-500">Completion Rate</p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              {dayActivity.map(({ day, count }) => (
+                <div key={day} className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500 w-8">{day}</span>
+                  <div className="flex-1 h-3 bg-zinc-800/50 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500/60 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max((count / maxActivity) * 100, count > 0 ? 8 : 0)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-zinc-500 w-4 text-right">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Current Goals — максимум 3 */}
+          {goals.length > 0 && (
+            <div className="bg-zinc-800/30 rounded-xl border border-zinc-700/30 px-5 py-4">
+              <p className="text-xs text-zinc-500 mb-3">Current Goals</p>
+              <div className="space-y-3">
+                {goals.slice(0, 3).map((goal) => {
+                  const linked = allTasksForStats.filter((t) => t.goalId === goal.id);
+                  const total = linked.length;
+                  const completed = linked.filter((t) => t.completed).length;
+                  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                  return (
+                    <div key={goal.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-zinc-300 truncate">🎯 {goal.name}</span>
+                        <span className="text-xs text-emerald-400 font-medium ml-2">{pct}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-emerald-400 to-green-600 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {goals.length > 3 && (
+                <button
+                  onClick={() => onPageChange("goals")}
+                  className="mt-3 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  View All Goals
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Next Lesson — большая карточка */}
           {nextLesson && (

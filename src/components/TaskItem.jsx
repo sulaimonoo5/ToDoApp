@@ -17,13 +17,15 @@ function TaskItem({
   onDragOver,
   onDrop,
   isMobile,
+  goals = [],
 }) {
   // Флаг анимации удаления (плавное исчезание)
   const [isDeleting, setIsDeleting] = useState(false);
-  // Флаг режима редактирования (текст + приоритет)
+  // Флаг режима редактирования (текст + приоритет + goal)
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [editPriority, setEditPriority] = useState(task.priority);
+  const [editGoalId, setEditGoalId] = useState(task.goalId || "");
   const editInputRef = useRef(null);
 
   // Автофокус и выделение текста при входе в режим редактирования
@@ -44,6 +46,7 @@ function TaskItem({
   const startEdit = () => {
     setEditText(task.text);
     setEditPriority(task.priority);
+    setEditGoalId(task.goalId || "");
     setIsEditing(true);
   };
 
@@ -51,9 +54,10 @@ function TaskItem({
   const saveEdit = () => {
     const trimmed = editText.trim();
     if (trimmed) {
-      const hasChanges = trimmed !== task.text || editPriority !== task.priority;
+      const newGoal = editGoalId || null;
+      const hasChanges = trimmed !== task.text || editPriority !== task.priority || newGoal !== (task.goalId || null);
       if (hasChanges) {
-        onEdit(task.id, trimmed, editPriority);
+        onEdit(task.id, trimmed, editPriority, newGoal);
       }
     }
     setIsEditing(false);
@@ -156,6 +160,21 @@ function TaskItem({
               Save
             </button>
           </div>
+          {goals.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-500 text-xs">Goal:</span>
+              <select
+                value={editGoalId}
+                onChange={(e) => setEditGoalId(e.target.value)}
+                className="bg-zinc-700/50 text-zinc-300 text-xs px-2 py-1 rounded-lg border border-zinc-600/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 max-w-[180px]"
+              >
+                <option value="">No Goal</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       ) : (
         <span
@@ -163,6 +182,10 @@ function TaskItem({
           {task.text}
         </span>
       )}
+      {!isEditing && task.goalId && (() => {
+        const goal = goals.find((g) => g.id === task.goalId);
+        return goal ? <span className="text-[10px] text-emerald-500/60 ml-1 flex-shrink-0">🎯 {goal.name}</span> : null;
+      })()}
 
       {/* Кнопки Edit и Delete — на мобильных всегда видимы, на десктопе при hover */}
       <div className={`flex gap-1.5 ${isMobile ? "" : "opacity-0 group-hover:opacity-100"} transition-all duration-200`}>

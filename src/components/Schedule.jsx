@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import RightIcon from "../icons/RightIcon";
+import { updateStreak } from "../services/streakService";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LESSONS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -362,6 +363,22 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     setRecentlyDeletedLesson(null);
   };
 
+  const toggleLessonAttended = (day, lesson) => {
+    const lessonData = data[day]?.[lesson];
+    if (!lessonData) return;
+    const newAttended = !lessonData.attended;
+    setData((prev) => ({
+      ...prev,
+      [day]: {
+        ...(prev[day] || {}),
+        [lesson]: { ...lessonData, attended: newAttended },
+      },
+    }));
+    if (newAttended) {
+      updateStreak(new Date());
+    }
+  };
+
   const restoreLesson = (trashItem) => {
     const { id, day, lesson, deletedAt, ...lessonData } = trashItem;
     const key = `${day}-${lesson}`;
@@ -607,6 +624,10 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                               ? "bg-emerald-500/[0.04]"
                               : ""
                             }
+                            ${lessonData?.attended
+                              ? "opacity-70"
+                              : ""
+                            }
                             ${isNew
                               ? "animate-fade-in"
                               : ""
@@ -621,9 +642,25 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                             <>
                               <div className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-sm ${COLOR_MAP[lessonData.color]?.accent || "bg-emerald-500/70"}`} />
 
-                              <div className="pl-3 min-w-0">
-                                <div className={`text-sm font-semibold leading-tight truncate ${COLOR_MAP[lessonData.color]?.text || "text-white"}`}>
-                                  {lessonData.name}
+                              <div className="pl-3 min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    onClick={(e) => { e.stopPropagation(); toggleLessonAttended(dayIdx, lesson); }}
+                                    className={`inline-flex items-center justify-center w-4 h-4 rounded-full border-2 cursor-pointer flex-shrink-0 transition-colors duration-150 ${
+                                      lessonData.attended
+                                        ? "bg-emerald-500 border-emerald-500"
+                                        : "border-zinc-600 hover:border-zinc-500"
+                                    }`}
+                                  >
+                                    {lessonData.attended && (
+                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )}
+                                  </span>
+                                  <span className={`text-sm font-semibold leading-tight truncate ${COLOR_MAP[lessonData.color]?.text || "text-white"}`}>
+                                    {lessonData.name}
+                                  </span>
                                 </div>
                                 {lessonData.startTime && lessonData.endTime && (
                                   <div className="text-[11px] text-zinc-400 font-medium mt-0.5">

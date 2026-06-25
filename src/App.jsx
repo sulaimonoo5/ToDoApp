@@ -10,11 +10,14 @@ import TaskList from "./components/TaskList";
 import Sidebar from "./components/Sidebar";
 import Schedule from "./components/Schedule";
 import Home from "./components/Home";
+import Goals from "./components/Goals";
+import ErrorBoundary from "./components/ErrorBoundary";
 import WelcomeScreen from "./components/WelcomeScreen";
 import LeftIcon from "./icons/LeftIcon";
 import RightIcon from "./icons/RightIcon";
 import ChevronIcon from "./icons/ChevronIcon";
 import * as notificationService from "./services/notificationService";
+import * as streakService from "./services/streakService";
 
 // Ключи для localStorage
 const LISTS_KEY = "todoLists";
@@ -24,6 +27,7 @@ const TRASH_KEY = "taskTrash";
 const CURRENT_PAGE_KEY = "currentPage";
 const FILTER_KEY = "taskFilter";
 const SEARCH_KEY = "taskSearch";
+const GOALS_KEY = "goals";
 
 // Константы
 const TRASH_DAYS = 30;
@@ -66,6 +70,8 @@ const getTasksFromLists = (lists, currentListId) => {
 function App() {
   // Списки задач
   const [lists, setLists] = useState([]);
+  // Goals
+  const [goals, setGoals] = useState([]);
   // Текущий активный список
   const [currentListId, setCurrentListId] = useState(null);
   // Dropdown открыт?
@@ -202,6 +208,12 @@ function App() {
       setTrash(validTrash);
     }
 
+    // Загрузка goals из localStorage
+    try {
+      const storedGoals = localStorage.getItem(GOALS_KEY);
+      if (storedGoals) setGoals(JSON.parse(storedGoals));
+    } catch {}
+
     isLoadingRef.current = false;
   }, []);
 
@@ -218,6 +230,13 @@ function App() {
       localStorage.setItem(TRASH_KEY, JSON.stringify(trash));
     }
   }, [trash]);
+
+  // Сохранение goals в localStorage
+  useEffect(() => {
+    if (!isLoadingRef.current) {
+      localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
+    }
+  }, [goals]);
 
   // Сохранение текущего списка в localStorage
   useEffect(() => {
@@ -347,12 +366,13 @@ function App() {
   };
 
   // Добавить новую задачу
-  const addTask = (text, priority = "low") => {
+  const addTask = (text, priority = "low", goalId = null) => {
     const newTask = {
       id: Date.now().toString(),
       text,
       completed: false,
       priority,
+      goalId,
     };
     setLists(
       lists.map((list) =>
@@ -445,22 +465,8 @@ function App() {
 
   // Переключить статус выполнения задачи
   const toggleTask = (id) => {
-    setLists(
-      lists.map((list) =>
-        list.id === currentListId
-          ? {
-              ...list,
-              tasks: list.tasks.map((task) =>
-                task.id === id ? { ...task, completed: !task.completed } : task,
-              ),
-            }
-          : list,
-      ),
-    );
-  };
-
-  // Редактировать текст и приоритет задачи
-  const editTask = (id, newText, newPriority) => {
+    const taskToToggle = tasks.find((t) => t.id === id);
+    const wasUncompleted = taskToToggle && !taskToToggle.completed;
     setLists(
       lists.map((list) =>
         list.id === currentListId
@@ -468,7 +474,32 @@ function App() {
               ...list,
               tasks: list.tasks.map((task) =>
                 task.id === id
-                  ? { ...task, text: newText, priority: newPriority }
+                  ? {
+                      ...task,
+                      completed: !task.completed,
+                      completedAt: !task.completed ? new Date().toISOString() : undefined,
+                    }
+                  : task,
+              ),
+            }
+          : list,
+      ),
+    );
+    if (wasUncompleted) {
+      streakService.updateStreak(new Date());
+    }
+  };
+
+  // Редактировать текст и приоритет задачи
+  const editTask = (id, newText, newPriority, newGoalId) => {
+    setLists(
+      lists.map((list) =>
+        list.id === currentListId
+          ? {
+              ...list,
+              tasks: list.tasks.map((task) =>
+                task.id === id
+                  ? { ...task, text: newText, priority: newPriority, goalId: newGoalId || null }
                   : task,
               ),
             }
@@ -490,11 +521,37 @@ function App() {
     );
   };
 
+  // Goals CRUD
+  const addGoal = ({ name, description }) => {
+    const newGoal = {
+      id: Date.now().toString(),
+      name: name.trim(),
+      description: description.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    setGoals([...goals, newGoal]);
+  };
+
+  const editGoal = (id, { name, description }) => {
+    setGoals(
+      goals.map((g) =>
+        g.id === id
+          ? { ...g, name: name.trim(), description: description.trim() }
+          : g,
+      ),
+    );
+  };
+
+  const deleteGoal = (id) => {
+    setGoals(goals.filter((g) => g.id !== id));
+  };
+
   // Подсчёт выполненных задач
   const completedCount = tasks.filter((t) => t.completed).length;
   const progress = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
   return (
+    <ErrorBoundary>
     <div className="h-screen overflow-hidden bg-black">
       {/* WelcomeScreen — только при полном запуске, не при переключении страниц */}
       {showWelcome && (
@@ -520,6 +577,8 @@ function App() {
             sidebarOpen={sidebarOpen}
             tasks={tasks}
             lists={lists}
+            goals={goals}
+            now={now}
             onPageChange={setCurrentPage}
             onToggle={toggleTask}
           />
@@ -646,7 +705,7 @@ function App() {
                 </div>
 
                 {/* TaskInput */}
-                <TaskInput onAdd={addTask} />
+                <TaskInput onAdd={addTask} goals={goals} />
 
                 {/* TaskList */}
                 <div className="min-h-0">
@@ -655,14 +714,34 @@ function App() {
                     if (searchQuery) filtered = filtered.filter((t) => t.text.toLowerCase().includes(searchQuery.toLowerCase()));
                     if (filter === "active") filtered = filtered.filter((t) => !t.completed);
                     if (filter === "completed") filtered = filtered.filter((t) => t.completed);
-                    return <TaskList tasks={filtered} onDelete={deleteTask} onToggle={toggleTask} onReorder={reorderTasks} onEdit={editTask} isMobile={!isDesktop} />;
+                    return <TaskList tasks={filtered} onDelete={deleteTask} onToggle={toggleTask} onReorder={reorderTasks} onEdit={editTask} isMobile={!isDesktop} goals={goals} />;
                   })()}
                 </div>
               </div>
             </div>
           </div>
-        ) : (
+        ) : currentPage === "schedule" ? (
           <Schedule onToggleSidebar={handleToggle} sidebarOpen={sidebarOpen} />
+        ) : currentPage === "goals" ? (
+          <Goals
+            onToggleSidebar={handleToggle}
+            sidebarOpen={sidebarOpen}
+            goals={goals}
+            lists={lists}
+            now={now}
+            onAddGoal={addGoal}
+            onEditGoal={editGoal}
+            onDeleteGoal={deleteGoal}
+          />
+        ) : (
+          <Home
+            onToggleSidebar={handleToggle}
+            sidebarOpen={sidebarOpen}
+            tasks={tasks}
+            lists={lists}
+            onPageChange={setCurrentPage}
+            onToggle={toggleTask}
+          />
         )}
       </main>
 
@@ -759,6 +838,7 @@ function App() {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }
 
