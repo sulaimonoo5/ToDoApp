@@ -2,12 +2,53 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../services/api";
 import * as syncService from "../services/syncService";
+import { getDeviceIcon } from "../utils/deviceInfo";
 
-function StatCard({ label, value, accent }) {
+const STAT_ICONS = {
+  tasks: "📝",
+  goals: "🎯",
+  lessons: "📚",
+  streak: "🔥",
+  completed: "✅",
+};
+
+const STAT_DESCRIPTIONS = {
+  tasks: (s) => `${s.completedTasks} completed`,
+  goals: (s) => "Active goals",
+  lessons: (s) => "Scheduled lessons",
+  streak: (s) => s.currentStreak > 0 ? "Keep it up!" : "Start today!",
+  completed: (s) => s.completedTasks > 0 ? "Great progress!" : "No tasks yet",
+};
+
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return "";
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Active now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 30) return `${days} days ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function isActive(dateStr) {
+  if (!dateStr) return false;
+  const diff = Date.now() - new Date(dateStr).getTime();
+  return diff < 120000;
+}
+
+function StatCard({ icon, label, value, description, accent }) {
   return (
-    <div className="bg-zinc-800/30 border border-zinc-700/30 rounded-xl px-4 py-3.5">
-      <p className="text-zinc-500 text-xs mb-0.5">{label}</p>
-      <p className={`text-lg font-bold ${accent ? "text-emerald-400" : "text-white"}`}>{value}</p>
+    <div className="bg-zinc-800/30 border border-zinc-700/30 rounded-xl px-4 py-4 flex flex-col items-start gap-1 min-h-[130px]">
+      <span className="text-xl leading-none">{icon}</span>
+      <p className="text-zinc-500 text-xs font-medium whitespace-nowrap">{label}</p>
+      <p className={`text-2xl font-bold leading-tight truncate w-full ${accent ? "text-emerald-400" : "text-white"}`}>{value}</p>
+      <p className="text-zinc-600 text-[10px] leading-tight">{description}</p>
     </div>
   );
 }
@@ -38,40 +79,6 @@ function ProfileCard({ user, onEditProfile, onChangePassword }) {
           Change Password
         </button>
       </div>
-    </div>
-  );
-}
-
-function DeviceIcon({ type }) {
-  const t = (type || "").toLowerCase();
-  if (t === "mobile") return <span className="text-lg">📱</span>;
-  if (t === "tablet") return <span className="text-lg">📟</span>;
-  if (t === "desktop") return <span className="text-lg">💻</span>;
-  return <span className="text-lg">🖥</span>;
-}
-
-function formatTimeAgo(dateStr) {
-  if (!dateStr) return "";
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Active now";
-  if (mins < 60) return `${mins} min ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
-
-function InfoRow({ label, value }) {
-  if (!value) return null;
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-zinc-500 text-xs w-20 flex-shrink-0">{label}</span>
-      <span className="text-zinc-300 text-xs truncate">{value}</span>
     </div>
   );
 }
@@ -238,7 +245,6 @@ function AccountPage({ onBack }) {
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
-      {/* Sticky Header */}
       <div className="sticky top-0 z-20 bg-black/70 backdrop-blur-md border-b border-zinc-800/50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
           <button onClick={onBack} className="p-2 bg-zinc-800/80 rounded-xl hover:scale-110 active:scale-95 transition-all duration-200">
@@ -250,7 +256,6 @@ function AccountPage({ onBack }) {
         </div>
       </div>
 
-      {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-12 space-y-6">
 
@@ -262,15 +267,15 @@ function AccountPage({ onBack }) {
             <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase tracking-wider">Account Statistics</h3>
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {[...Array(5)].map((_, i) => <div key={i} className="bg-zinc-800/30 rounded-xl px-4 py-3.5 animate-pulse h-16" />)}
+                {[...Array(5)].map((_, i) => <div key={i} className="bg-zinc-800/30 rounded-xl px-4 py-4 animate-pulse min-h-[130px]" />)}
               </div>
             ) : stats && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <StatCard label="Tasks" value={stats.tasks} />
-                <StatCard label="Goals" value={stats.goals} />
-                <StatCard label="Lessons" value={stats.lessons || 0} />
-                <StatCard label="Current Streak" value={`${stats.currentStreak} Days`} accent />
-                <StatCard label="Completed Tasks" value={stats.completedTasks} accent />
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-stretch">
+                <StatCard icon={STAT_ICONS.tasks} label="Tasks" value={stats.tasks} description={STAT_DESCRIPTIONS.tasks(stats)} />
+                <StatCard icon={STAT_ICONS.goals} label="Goals" value={stats.goals} description={STAT_DESCRIPTIONS.goals(stats)} />
+                <StatCard icon={STAT_ICONS.lessons} label="Lessons" value={stats.lessons || 0} description={STAT_DESCRIPTIONS.lessons(stats)} />
+                <StatCard icon={STAT_ICONS.streak} label="Current Streak" value={`${stats.currentStreak} Days`} description={STAT_DESCRIPTIONS.streak(stats)} accent />
+                <StatCard icon={STAT_ICONS.completed} label="Completed Tasks" value={stats.completedTasks} description={STAT_DESCRIPTIONS.completed(stats)} accent />
               </div>
             )}
           </div>
@@ -281,35 +286,43 @@ function AccountPage({ onBack }) {
             <div className="bg-zinc-800/30 border border-zinc-700/30 rounded-xl px-5 py-5 space-y-3">
               {loading ? (
                 <div className="space-y-3">
-                  {[...Array(2)].map((_, i) => <div key={i} className="bg-zinc-800/50 rounded-xl px-4 py-3.5 animate-pulse h-16" />)}
+                  {[...Array(2)].map((_, i) => <div key={i} className="bg-zinc-800/50 rounded-xl px-4 py-3.5 animate-pulse h-[72px]" />)}
                 </div>
               ) : sessions.length === 0 ? (
                 <p className="text-zinc-500 text-sm text-center py-4">No active sessions</p>
               ) : (
-                sessions.map((s) => (
-                  <div key={s.sessionId} className={`bg-zinc-800/50 rounded-xl px-4 py-3.5 flex items-center justify-between gap-3 ${s.isCurrent ? "ring-1 ring-emerald-500/30" : ""}`}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <DeviceIcon type={s.deviceType} />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-white text-sm font-medium truncate">{s.deviceType || "Unknown"}</span>
-                          {s.isCurrent && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">Current</span>}
+                sessions.map((s) => {
+                  const active = isActive(s.lastActive);
+                  return (
+                    <div key={s.sessionId} className={`bg-zinc-800/50 rounded-xl px-4 py-3.5 flex items-center justify-between gap-3 ${s.isCurrent ? "ring-1 ring-emerald-500/30" : ""}`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-xl flex-shrink-0">{getDeviceIcon(s.deviceType)}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-white text-sm font-medium truncate">{s.deviceType || "Unknown"}</span>
+                            {s.isCurrent && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">Current Device</span>}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${active ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-700/50 text-zinc-500"}`}>
+                              {active ? "Active" : "Offline"}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-x-2 mt-0.5">
+                            <span className="text-zinc-500 text-xs">{s.browser}</span>
+                            <span className="text-zinc-500 text-xs">&bull;</span>
+                            <span className="text-zinc-500 text-xs">{s.os}</span>
+                          </div>
+                          <p className="text-zinc-600 text-xs mt-0.5">
+                            {active ? "Active now" : `Last active: ${formatTimeAgo(s.lastActive)}`}
+                          </p>
                         </div>
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                          <span className="text-zinc-500 text-xs">{s.browser}</span>
-                          <span className="text-zinc-500 text-xs">{s.os}</span>
-                          {s.ip && <span className="text-zinc-600 text-xs">{s.ip}</span>}
-                        </div>
-                        <p className="text-zinc-600 text-xs mt-0.5">{formatTimeAgo(s.lastActive)}</p>
                       </div>
+                      {!s.isCurrent && (
+                        <button onClick={() => handleDeleteSession(s.sessionId)} className="text-xs text-zinc-400 hover:text-red-400 bg-zinc-800/80 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all flex-shrink-0">
+                          Sign Out
+                        </button>
+                      )}
                     </div>
-                    {!s.isCurrent && (
-                      <button onClick={() => handleDeleteSession(s.sessionId)} className="text-xs text-zinc-400 hover:text-red-400 bg-zinc-800/80 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all flex-shrink-0">
-                        Sign Out
-                      </button>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
               {sessions.length > 1 && (
                 <div>
@@ -396,15 +409,16 @@ function AccountPage({ onBack }) {
                         <div key={i} className="bg-zinc-800/50 rounded-lg px-3.5 py-2.5 flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <DeviceIcon type={h.deviceType} />
+                              <span className="text-base flex-shrink-0">{getDeviceIcon(h.deviceType)}</span>
                               <span className="text-white text-xs font-medium">{h.deviceType || "Unknown"}</span>
                             </div>
                             <div className="flex gap-2 mt-0.5">
                               <span className="text-zinc-500 text-xs">{h.browser}</span>
+                              <span className="text-zinc-500 text-xs">&bull;</span>
                               <span className="text-zinc-500 text-xs">{h.os}</span>
                             </div>
                           </div>
-                          <span className="text-zinc-600 text-xs flex-shrink-0">{new Date(h.createdAt).toLocaleDateString()} {new Date(h.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          <span className="text-zinc-600 text-xs flex-shrink-0 text-right">{new Date(h.createdAt).toLocaleDateString()} {new Date(h.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                         </div>
                       ))
                     )}
