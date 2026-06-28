@@ -1,7 +1,10 @@
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
 const { Pool } = require("pg");
+const jwt = require("jsonwebtoken");
 const authRoutes = require("./routes/auth");
 const dataRoutes = require("./routes/data");
 const syncRoutes = require("./routes/sync");
@@ -21,7 +24,6 @@ const pool = new Pool(
       }
 );
 
-// Auto-create tables on startup
 async function initDB() {
   try {
     await pool.query(`
@@ -122,8 +124,38 @@ async function initDB() {
         location VARCHAR(255) DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS task_trash (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        task_id VARCHAR(255) NOT NULL,
+        list_id VARCHAR(255) NOT NULL,
+        text TEXT NOT NULL,
+        completed BOOLEAN DEFAULT false,
+        priority VARCHAR(20) DEFAULT 'low',
+        goal_id VARCHAR(255),
+        completed_at TIMESTAMP,
+        sort_order INTEGER DEFAULT 0,
+        deleted_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, task_id)
+      );
+      CREATE TABLE IF NOT EXISTS schedule_trash (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        day INTEGER NOT NULL,
+        lesson INTEGER NOT NULL,
+        name VARCHAR(255),
+        start_time VARCHAR(10),
+        end_time VARCHAR(10),
+        room VARCHAR(100),
+        teacher VARCHAR(100),
+        color VARCHAR(50) DEFAULT 'emerald',
+        attended BOOLEAN DEFAULT false,
+        reminder VARCHAR(20) DEFAULT 'none',
+        notes TEXT DEFAULT '',
+        deleted_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, day, lesson)
+      );
     `);
-    // Add last_password_change column if not exists
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_password_change TIMESTAMP DEFAULT NOW()`);
     console.log("Database tables ready");
   } catch (err) {
@@ -135,11 +167,40 @@ async function initDB() {
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "50mb" }));
 
-// Make pool accessible to routes
 app.use((req, res, next) => {
   req.pool = pool;
   next();
 });
+
+const JWT_SECRET = process.env.JWT_SECRET || "todo-app-jwt-secret-dev";
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: true, credentials: true },
+  pingInterval: 10000,
+  pingTimeout: 5000,
+});
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error("Authentication required"));
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    socket.userId = decoded.userId;
+    next();
+  } catch {
+    next(new Error("Invalid token"));
+  }
+});
+
+io.on("connection", (socket) => {
+  const userId = socket.userId;
+  socket.join(`user:${userId}`);
+  socket.on("disconnect", () => {});
+});
+
+app.set("io", io);
+app.set("JWT_SECRET", JWT_SECRET);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/data", dataRoutes);
@@ -154,7 +215,6 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// Serve built frontend in production
 const distPath = path.join(__dirname, "..", "dist");
 app.use(express.static(distPath));
 app.get("*", (req, res) => {
@@ -163,7 +223,7 @@ app.get("*", (req, res) => {
 });
 
 initDB().then(() => {
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 });

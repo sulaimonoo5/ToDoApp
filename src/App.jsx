@@ -19,7 +19,11 @@ import WelcomeScreen from "./components/WelcomeScreen";
 import { useAuth } from "./context/AuthContext";
 import RightIcon from "./icons/RightIcon";
 import ChevronIcon from "./icons/ChevronIcon";
-import { CalendarDays, Clock, Pencil, Trash2, Check, X } from "lucide-react";
+import { CalendarDays, Clock, Pencil, Trash2, Check, X, RotateCcw, AlertTriangle } from "lucide-react";
+import ToastContainer, { notify } from "./components/Toast";
+import ConfirmDialog from "./components/ConfirmDialog";
+import { connectSocket, disconnectSocket, getSocket } from "./services/socket";
+import * as api from "./services/api";
 import * as notificationService from "./services/notificationService";
 import * as streakService from "./services/streakService";
 import * as syncService from "./services/syncService";
@@ -133,6 +137,9 @@ function App() {
   const prevUserRef = useRef(null);
   const syncIntervalRef = useRef(null);
 
+  const [selectedTrashItems, setSelectedTrashItems] = useState(new Set());
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, title: "", message: "", onConfirm: null, variant: "danger" });
+
   // Текущие задачи
   const tasks = getTasksFromLists(lists, currentListId);
   // Текущий список
@@ -229,6 +236,18 @@ function App() {
     } catch {}
 
     isLoadingRef.current = false;
+
+    // Ensure at least one list exists
+    const checkLists = localStorage.getItem(LISTS_KEY);
+    if (checkLists) {
+      const parsed = JSON.parse(checkLists);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        const newList = createNewList("New Tasks List");
+        localStorage.setItem(LISTS_KEY, JSON.stringify([newList]));
+        setLists([newList]);
+        setCurrentListId(newList.id);
+      }
+    }
   }, []);
 
   // Сохранение списков в localStorage
@@ -311,7 +330,14 @@ function App() {
         .then(({ data }) => {
           serverLoadedRef.current = true;
           const storedLists = localStorage.getItem(LISTS_KEY);
-          if (storedLists) setLists(JSON.parse(storedLists));
+          let parsedLists = storedLists ? JSON.parse(storedLists) : [];
+          // Ensure at least one list exists for new users
+          if (!Array.isArray(parsedLists) || parsedLists.length === 0) {
+            const newList = createNewList("New Tasks List");
+            parsedLists = [newList];
+            localStorage.setItem(LISTS_KEY, JSON.stringify(parsedLists));
+          }
+          setLists(parsedLists);
           const storedGoals = localStorage.getItem(GOALS_KEY);
           if (storedGoals) setGoals(JSON.parse(storedGoals));
           if (data && syncService.hasLocalData() && (!data.lists || data.lists.length === 0) && !syncService.isDataImported()) {
@@ -362,6 +388,183 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // Socket connection for real-time sync
+  useEffect(() => {
+    if (user) {
+      const s = connectSocket();
+      if (s) {
+        const mySessionId = localStorage.getItem("session_id");
+        const handlePatch = ({ type, payload, sessionId: srcSessionId }) => {
+          if (srcSessionId === mySessionId) return;
+          switch (type) {
+            case "list:create": {
+              setLists((prev) => {
+                if (prev.find((l) => l.id === payload.list.id)) return prev;
+                return [...prev, { ...payload.list, tasks: [] }];
+              });
+              break;
+            }
+            case "list:rename": {
+              setLists((prev) => prev.map((l) => l.id === payload.listId ? { ...l, name: payload.name } : l));
+              break;
+            }
+            case "list:delete": {
+              setLists((prev) => {
+                const next = prev.filter((l) => l.id !== payload.listId);
+                return next.length === 0 ? [createNewList("New Tasks List")] : next;
+              });
+              break;
+            }
+            case "task:add": {
+              setLists((prev) => prev.map((l) => l.id === payload.listId ? { ...l, tasks: [...l.tasks, payload.task] } : l));
+              break;
+            }
+            case "task:update": {
+              setLists((prev) => prev.map((l) => ({
+                ...l,
+                tasks: l.tasks.map((t) => t.id === payload.task.id ? { ...t, ...payload.task } : t),
+              })));
+              break;
+            }
+            case "task:toggle": {
+              setLists((prev) => prev.map((l) => ({
+                ...l,
+                tasks: l.tasks.map((t) => t.id === payload.taskId ? { ...t, completed: payload.completed, completedAt: payload.completedAt } : t),
+              })));
+              break;
+            }
+            case "task:reorder": {
+              setLists((prev) => prev.map((l) => l.id === payload.listId ? { ...l, tasks: payload.tasks } : l));
+              break;
+            }
+            case "task:delete": {
+              setLists((prev) => prev.map((l) => ({
+                ...l,
+                tasks: l.tasks.filter((t) => t.id !== payload.task.id),
+              })));
+              setTrash((prev) => {
+                if (prev.find((t) => t.id === payload.task.id)) return prev;
+                return [...prev, { ...payload.task, listId: payload.listId || "", deletedAt: Date.now() }];
+              });
+              break;
+            }
+            case "task:restore": {
+              setTrash((prev) => prev.filter((t) => t.id !== payload.item.id));
+              setLists((prev) => prev.map((l) => l.id === payload.targetListId ? { ...l, tasks: [...l.tasks, payload.item] } : l));
+              break;
+            }
+            case "task:delete-permanent": {
+              setTrash((prev) => prev.filter((t) => t.id !== payload.taskId));
+              break;
+            }
+            case "goal:add": {
+              setGoals((prev) => {
+                if (prev.find((g) => g.id === payload.goal.id)) return prev;
+                return [...prev, payload.goal];
+              });
+              break;
+            }
+            case "goal:update": {
+              setGoals((prev) => prev.map((g) => g.id === payload.goal.id ? { ...g, ...payload.goal } : g));
+              break;
+            }
+            case "goal:delete": {
+              setGoals((prev) => prev.filter((g) => g.id !== payload.goalId));
+              break;
+            }
+            case "lesson:add":
+            case "lesson:update": {
+              try {
+                const stored = localStorage.getItem("scheduleData");
+                const schedule = stored ? JSON.parse(stored) : {};
+                const { day, lesson } = payload.lesson;
+                if (!schedule[day]) schedule[day] = {};
+                schedule[day][lesson] = payload.lesson;
+                localStorage.setItem("scheduleData", JSON.stringify(schedule));
+              } catch {}
+              break;
+            }
+            case "lesson:delete": {
+              try {
+                const stored = localStorage.getItem("scheduleData");
+                const schedule = stored ? JSON.parse(stored) : {};
+                const { day, lesson } = payload.lesson;
+                if (schedule[day]) {
+                  delete schedule[day][lesson];
+                  if (Object.keys(schedule[day]).length === 0) delete schedule[day];
+                  localStorage.setItem("scheduleData", JSON.stringify(schedule));
+                }
+              } catch {}
+              break;
+            }
+            case "lesson:restore": {
+              try {
+                const stored = localStorage.getItem("scheduleData");
+                const schedule = stored ? JSON.parse(stored) : {};
+                const { day, lesson } = payload.item;
+                if (!schedule[day]) schedule[day] = {};
+                schedule[day][lesson] = payload.item;
+                localStorage.setItem("scheduleData", JSON.stringify(schedule));
+              } catch {}
+              break;
+            }
+            case "lesson:delete-permanent": {
+              try {
+                const stored = localStorage.getItem("scheduleTrash");
+                const trash = stored ? JSON.parse(stored) : [];
+                const filtered = trash.filter((t) => !(t.day === payload.day && t.lesson === payload.lesson));
+                localStorage.setItem("scheduleTrash", JSON.stringify(filtered));
+              } catch {}
+              break;
+            }
+            case "trash:restore-all": {
+              if (payload.type === "tasks") {
+                setTrash([]);
+              } else if (payload.type === "lessons") {
+                try { localStorage.setItem("scheduleTrash", "[]"); } catch {}
+              }
+              notify("All items restored");
+              break;
+            }
+            case "trash:delete-all": {
+              if (payload.type === "tasks") {
+                setTrash([]);
+                setSelectedTrashItems(new Set());
+              } else if (payload.type === "lessons") {
+                try { localStorage.setItem("scheduleTrash", "[]"); } catch {}
+              }
+              notify("Trash cleared");
+              break;
+            }
+            case "trash:restore-selected": {
+              if (payload.type === "tasks" && payload.items) {
+                setTrash((prev) => {
+                  const restoredIds = new Set(payload.items.map((i) => i.id));
+                  return prev.filter((t) => !restoredIds.has(t.id));
+                });
+                for (const item of payload.items) {
+                  setLists((pv) => pv.map((l) => l.id === (item.listId || payload.listId) ? { ...l, tasks: [...l.tasks, item] } : l));
+                }
+                setSelectedTrashItems(new Set());
+              }
+              break;
+            }
+            case "trash:delete-selected": {
+              if (payload.type === "tasks" && payload.ids) {
+                const idSet = new Set(payload.ids);
+                setTrash((prev) => prev.filter((t) => !idSet.has(t.id)));
+                setSelectedTrashItems(new Set());
+              }
+              break;
+            }
+          }
+        };
+        s.on("sync:patch", handlePatch);
+      }
+    }
+    return () => { disconnectSocket(); };
+  }, [user]);
+
   // Отключение pull-to-refresh на мобильных — CSS overscroll-behavior в index.html + body overflow:hidden
 
   // Обработчик toggle
@@ -383,6 +586,7 @@ function App() {
     setNewListError("");
     setIsCreatingList(false);
     setIsListDropdownOpen(false);
+    if (user) api.patch("list:create", { list: newList, sortOrder: lists.length }).catch(() => {});
   };
 
   // Переключиться на список
@@ -399,31 +603,40 @@ function App() {
 
   // Сохранить изменённый список
   const saveEditList = () => {
+    let newName = "";
     if (editingListName.trim()) {
+      newName = editingListName.trim();
       setLists(
         lists.map((list) =>
           list.id === editingListId
-            ? { ...list, name: editingListName.trim() }
+            ? { ...list, name: newName }
             : list,
         ),
       );
     }
     setEditingListId(null);
     setEditingListName("");
+    if (newName && user) api.patch("list:rename", { listId: editingListId, name: newName }).catch(() => {});
   };
 
   // Удалить список
   const deleteList = (listId) => {
-    if (lists.length === 1) return;
-
     const newLists = lists.filter((l) => l.id !== listId);
-    setLists(newLists);
 
-    if (currentListId === listId) {
-      setCurrentListId(newLists[0].id);
+    if (newLists.length === 0) {
+      const defaultList = createNewList("New Tasks List");
+      setLists([defaultList]);
+      setCurrentListId(defaultList.id);
+      if (user) api.patch("list:create", { list: defaultList, sortOrder: 0 }).catch(() => {});
+    } else {
+      setLists(newLists);
+      if (currentListId === listId) {
+        setCurrentListId(newLists[0].id);
+      }
     }
 
     setIsListDropdownOpen(false);
+    if (user) api.patch("list:delete", { listId }).catch(() => {});
   };
 
   // Добавить новую задачу
@@ -442,24 +655,20 @@ function App() {
           : list,
       ),
     );
+    if (user) api.patch("task:add", { task: newTask, listId: currentListId }).catch(() => {});
   };
 
   // Удалить задачу (в trash)
   const deleteTask = (id) => {
     const taskToDelete = tasks.find((t) => t.id === id);
     if (taskToDelete) {
-      // Добавляем в trash
       const trashItem = {
         ...taskToDelete,
         listId: currentListId,
         deletedAt: Date.now(),
       };
       setTrash([...trash, trashItem]);
-
-      // Показываем undo toast
       setRecentlyDeleted(taskToDelete);
-
-      // Удаляем из списка
       setLists(
         lists.map((list) =>
           list.id === currentListId
@@ -467,29 +676,30 @@ function App() {
             : list,
         ),
       );
-
       if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
       undoTimeoutRef.current = setTimeout(() => {
         setRecentlyDeleted(null);
       }, 4000);
+      if (user) api.patch("task:delete", { task: taskToDelete, listId: currentListId }).catch(() => {});
     }
   };
 
   // Undo удаление: восстанавливаем задачу в список и ОДНОВРЕМЕННО удаляем из trash
   const undoDelete = () => {
     if (recentlyDeleted) {
-      // Возвращаем задачу обратно в текущий список
+      const item = recentlyDeleted;
       setLists(
         lists.map((list) =>
           list.id === currentListId
-            ? { ...list, tasks: [...list.tasks, recentlyDeleted] }
+            ? { ...list, tasks: [...list.tasks, item] }
             : list,
         ),
       );
-      // Удаляем задачу из корзины, чтобы не было дубликатов при открытии Trash
-      setTrash(trash.filter((t) => t.id !== recentlyDeleted.id));
+      setTrash(trash.filter((t) => t.id !== item.id));
       if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
       setRecentlyDeleted(null);
+      api.patch("task:restore", { item, targetListId: currentListId }).catch(() => {});
+      notify("Task restored");
     }
   };
 
@@ -517,17 +727,84 @@ function App() {
     }
 
     setTrash(trash.filter((t) => t.id !== id));
+    if (user) api.patch("task:restore", { item: trashItem, targetListId: targetList ? listId : currentListId }).catch(() => {});
+    notify("Task restored");
   };
 
   // Удалить задачу навсегда
   const permanentlyDeleteTask = (id) => {
     setTrash(trash.filter((t) => t.id !== id));
+    if (user) api.patch("task:delete-permanent", { taskId: id }).catch(() => {});
+    notify("Task permanently deleted");
+  };
+
+  const toggleSelectTrashItem = (id) => {
+    setSelectedTrashItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllTrashItems = () => {
+    if (selectedTrashItems.size === trash.length) {
+      setSelectedTrashItems(new Set());
+    } else {
+      setSelectedTrashItems(new Set(trash.map((t) => t.id)));
+    }
+  };
+
+  const restoreSelectedTrash = () => {
+    const selected = trash.filter((t) => selectedTrashItems.has(t.id));
+    if (selected.length === 0) return;
+    for (const item of selected) {
+      restoreTask(item);
+    }
+    setSelectedTrashItems(new Set());
+    api.patch("trash:restore-selected", { type: "tasks", items: selected }).catch(() => {});
+    notify(`${selected.length} task(s) restored`);
+  };
+
+  const deleteSelectedTrashPermanent = () => {
+    const ids = Array.from(selectedTrashItems);
+    setTrash(trash.filter((t) => !selectedTrashItems.has(t.id)));
+    api.patch("trash:delete-selected", { type: "tasks", ids }).catch(() => {});
+    setSelectedTrashItems(new Set());
+    notify(`${ids.length} task(s) permanently deleted`);
+  };
+
+  const restoreAllTrash = () => {
+    const items = [...trash];
+    for (const item of items) {
+      restoreTask(item);
+    }
+    api.patch("trash:restore-all", { type: "tasks" }).catch(() => {});
+    notify("All tasks restored");
+  };
+
+  const deleteAllTrashPermanent = () => {
+    const count = trash.length;
+    setTrash([]);
+    setSelectedTrashItems(new Set());
+    api.patch("trash:delete-all", { type: "tasks" }).catch(() => {});
+    notify(`${count} task(s) permanently deleted`);
+  };
+
+  const showConfirm = (title, message, onConfirm, variant = "danger") => {
+    setConfirmDialog({ open: true, title, message, onConfirm, variant });
+  };
+
+  const closeConfirm = () => {
+    setConfirmDialog({ open: false, title: "", message: "", onConfirm: null, variant: "danger" });
   };
 
   // Переключить статус выполнения задачи
   const toggleTask = (id) => {
     const taskToToggle = tasks.find((t) => t.id === id);
     const wasUncompleted = taskToToggle && !taskToToggle.completed;
+    const now = new Date().toISOString();
+    const newCompleted = !taskToToggle?.completed;
     setLists(
       lists.map((list) =>
         list.id === currentListId
@@ -537,8 +814,8 @@ function App() {
                 task.id === id
                   ? {
                       ...task,
-                      completed: !task.completed,
-                      completedAt: !task.completed ? new Date().toISOString() : undefined,
+                      completed: newCompleted,
+                      completedAt: newCompleted ? now : undefined,
                     }
                   : task,
               ),
@@ -549,6 +826,7 @@ function App() {
     if (wasUncompleted) {
       streakService.updateStreak(new Date());
     }
+    if (user) api.patch("task:toggle", { taskId: id, completed: newCompleted, completedAt: newCompleted ? now : null }).catch(() => {});
   };
 
   // Редактировать текст и приоритет задачи
@@ -567,6 +845,7 @@ function App() {
           : list,
       ),
     );
+    if (user) api.patch("task:update", { task: { id, text: newText, priority: newPriority, goalId: newGoalId || null } }).catch(() => {});
   };
 
   // Переместить задачу (для drag & drop)
@@ -580,6 +859,15 @@ function App() {
         return { ...list, tasks: newTasks };
       }),
     );
+    if (user) {
+      const currentList = lists.find((l) => l.id === currentListId);
+      if (currentList) {
+        const newTasks = [...currentList.tasks];
+        const [moved] = newTasks.splice(fromIndex, 1);
+        newTasks.splice(toIndex, 0, moved);
+        api.patch("task:reorder", { listId: currentListId, tasks: newTasks }).catch(() => {});
+      }
+    }
   };
 
   // Goals CRUD
@@ -591,6 +879,7 @@ function App() {
       createdAt: new Date().toISOString(),
     };
     setGoals([...goals, newGoal]);
+    if (user) api.patch("goal:add", { goal: newGoal }).catch(() => {});
   };
 
   const editGoal = (id, { name, description }) => {
@@ -601,10 +890,12 @@ function App() {
           : g,
       ),
     );
+    if (user) api.patch("goal:update", { goal: { id, name: name.trim(), description: description.trim() } }).catch(() => {});
   };
 
   const deleteGoal = (id) => {
     setGoals(goals.filter((g) => g.id !== id));
+    if (user) api.patch("goal:delete", { goalId: id }).catch(() => {});
   };
 
   // Импорт локальных данных после регистрации
@@ -841,70 +1132,77 @@ function App() {
         )}
       </main>
 
-      {/* Trash Modal — фиксированное модальное окно с блокировкой scroll фона */}
       {isTrashOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setIsTrashOpen(false)}>
-          {/* Контейнер модалки — клик внутри НЕ закрывает (stopPropagation) */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-[90%] sm:w-[540px] lg:w-[620px] max-h-[80vh] sm:max-h-[70vh] bg-zinc-900 rounded-2xl shadow-2xl shadow-black/40 border border-zinc-800 flex flex-col animate-scale-in">
-            {/* Header — фиксирован сверху */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 flex-shrink-0">
-              <h2 className="text-xl font-bold text-white">Trash</h2>
-              <button
-                onClick={() => setIsTrashOpen(false)}
-                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsTrashOpen(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[90%] sm:w-[540px] lg:w-[620px] max-h-[80vh] sm:max-h-[70vh] bg-zinc-900 rounded-2xl shadow-2xl shadow-black/40 border border-zinc-800 flex flex-col animate-scale-in">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-bold text-white">Trash</h2>
+                {trash.length > 0 && <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{trash.length} items</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                {trash.length > 0 && (
+                  <>
+                    <button onClick={selectAllTrashItems} className="text-xs text-zinc-400 hover:text-white px-2 py-1 rounded-lg hover:bg-zinc-800 transition-all">
+                      {selectedTrashItems.size === trash.length ? "Deselect All" : "Select All"}
+                    </button>
+                    <button onClick={restoreAllTrash} className="text-xs text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded-lg hover:bg-zinc-800 transition-all">
+                      <RotateCcw className="w-3.5 h-3.5 inline mr-1" />Restore All
+                    </button>
+                    <button onClick={() => showConfirm("Delete All", "These items will be permanently deleted. This action cannot be undone.", deleteAllTrashPermanent)} className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-zinc-800 transition-all">
+                      <Trash2 className="w-3.5 h-3.5 inline mr-1" />Delete All
+                    </button>
+                  </>
+                )}
+                <button onClick={() => setIsTrashOpen(false)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Список задач — ТОЛЬКО здесь внутренний скролл */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+            {selectedTrashItems.size > 0 && (
+              <div className="flex items-center gap-2 px-5 py-2 bg-zinc-800/30 border-b border-zinc-800/50">
+                <span className="text-xs text-zinc-400">{selectedTrashItems.size} selected</span>
+                <button onClick={restoreSelectedTrash} className={`text-xs px-2.5 py-1 rounded-lg transition-all ${selectedTrashItems.size === 0 ? "text-zinc-600 cursor-not-allowed" : "text-emerald-400 hover:bg-emerald-500/20"}`}>
+                  <RotateCcw className="w-3 h-3 inline mr-1" />Restore Selected
+                </button>
+                <button onClick={() => {
+                  const selected = Array.from(selectedTrashItems);
+                  showConfirm("Delete Selected", `${selected.length} item(s) will be permanently deleted. This action cannot be undone.`, deleteSelectedTrashPermanent);
+                }} className={`text-xs px-2.5 py-1 rounded-lg transition-all ${selectedTrashItems.size === 0 ? "text-zinc-600 cursor-not-allowed" : "text-red-400 hover:bg-red-500/20"}`}>
+                  <Trash2 className="w-3 h-3 inline mr-1" />Delete Selected
+                </button>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
               {trash.length === 0 ? (
-                <p className="text-zinc-500 text-center py-8">Trash is empty</p>
+                <p className="text-zinc-500 text-center py-8 text-sm">Trash is empty</p>
               ) : (
                 trash.map((item) => {
-                  const daysLeft = Math.ceil(
-                    TRASH_DAYS -
-                      (Date.now() - item.deletedAt) / (1000 * 60 * 60 * 24),
-                  );
-                  const listName =
-                    lists.find((l) => l.id === item.listId)?.name ||
-                    "Unknown list";
-
+                  const daysLeft = Math.ceil(TRASH_DAYS - (Date.now() - item.deletedAt) / (1000 * 60 * 60 * 24));
+                  const listName = lists.find((l) => l.id === item.listId)?.name || "Unknown list";
+                  const checked = selectedTrashItems.has(item.id);
                   return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between bg-zinc-800/50 px-4 py-3 rounded-xl flex-shrink-0">
+                    <div key={item.id} className={`flex items-center gap-3 bg-zinc-800/50 px-4 py-3 rounded-xl transition-all ${checked ? "ring-2 ring-emerald-500/30 bg-zinc-800/80" : ""}`}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleSelectTrashItem(item.id)} className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 accent-emerald-500 cursor-pointer flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm truncate">
-                          {item.text}
-                        </p>
-                        <p className="text-zinc-500 text-xs mt-1">
-                          From: {listName} • {daysLeft} days left
-                        </p>
+                        <p className={`text-sm truncate ${checked ? "text-white" : "text-zinc-300"}`}>{item.text}</p>
+                        <p className="text-zinc-500 text-xs mt-0.5">From: {listName} &middot; {daysLeft} days left</p>
                       </div>
-                      <div className="flex gap-2 ml-4 flex-shrink-0">
-                        <button
-                          onClick={() => restoreTask(item)}
-                          className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-lg hover:bg-emerald-500/30 transition-all">
-                          Restore
-                        </button>
-                        <button
-                          onClick={() => permanentlyDeleteTask(item.id)}
-                          className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/30 transition-all">
-                          Delete
-                        </button>
-                      </div>
+                      <button onClick={() => { restoreTask(item); api.patch("task:restore", { item, targetListId: item.listId }).catch(() => {}); notify("Task restored"); }} className="px-2.5 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-lg hover:bg-emerald-500/30 transition-all flex-shrink-0" title="Restore">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => { permanentlyDeleteTask(item.id); api.patch("task:delete-permanent", { taskId: item.id }).catch(() => {}); notify("Task permanently deleted"); }} className="px-2.5 py-1.5 bg-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/30 transition-all flex-shrink-0" title="Delete forever">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   );
                 })
               )}
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Undo Toast */}
@@ -931,6 +1229,16 @@ function App() {
           importing={importing}
         />
       )}
+      <ToastContainer />
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        variant={confirmDialog.variant}
+        confirmLabel={confirmDialog.variant === "danger" ? "Delete" : "Confirm"}
+        onConfirm={() => { confirmDialog.onConfirm?.(); closeConfirm(); }}
+        onCancel={closeConfirm}
+      />
     </ErrorBoundary>
   );
 }

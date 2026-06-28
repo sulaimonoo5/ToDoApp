@@ -8,7 +8,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import RightIcon from "../icons/RightIcon";
 import { updateStreak } from "../services/streakService";
-import { CalendarDays, Clock, Trash2, Check, Pencil, Lightbulb, BookOpen, X } from "lucide-react";
+import * as api from "../services/api";
+import { notify } from "./Toast";
+import ConfirmDialog from "./ConfirmDialog";
+import { getSocket } from "../services/socket";
+import { CalendarDays, Clock, Trash2, Check, Pencil, Lightbulb, BookOpen, X, RotateCcw } from "lucide-react";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LESSONS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -65,6 +69,8 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   const [recentlyDeletedLesson, setRecentlyDeletedLesson] = useState(null);
   const lessonUndoTimeoutRef = useRef(null);
   const isLoadingRef = useRef(true);
+  const [selectedLessonTrash, setSelectedLessonTrash] = useState(new Set());
+  const [lessonConfirmDialog, setLessonConfirmDialog] = useState({ open: false, title: "", message: "", onConfirm: null, variant: "danger" });
 
   // ------ localStorage: загрузка scheduleData и lessonTrash при старте ------
   useEffect(() => {
@@ -110,6 +116,101 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     const daysDiff = (now - deletedAt) / (1000 * 60 * 60 * 24);
     return daysDiff > TRASH_DAYS;
   };
+
+  // Socket listeners for real-time sync
+  useEffect(() => {
+    const s = getSocket();
+    if (!s) return;
+    const mySessionId = localStorage.getItem("session_id");
+    const handler = ({ type, payload, sessionId }) => {
+      if (sessionId === mySessionId) return;
+      switch (type) {
+        case "lesson:add":
+        case "lesson:update": {
+          const { day, lesson } = payload.lesson;
+          setData((prev) => {
+            const next = { ...prev };
+            if (!next[day]) next[day] = {};
+            next[day] = { ...next[day], [lesson]: payload.lesson };
+            return next;
+          });
+          break;
+        }
+        case "lesson:delete": {
+          const { day, lesson } = payload.lesson;
+          setData((prev) => {
+            const next = { ...prev };
+            if (next[day]) {
+              const newDay = { ...next[day] };
+              delete newDay[lesson];
+              if (Object.keys(newDay).length === 0) delete next[day];
+              else next[day] = newDay;
+            }
+            return next;
+          });
+          setLessonTrash((pv) => {
+            if (pv.find((t) => t.day === day && t.lesson === lesson)) return pv;
+            return [...pv, { ...payload.lesson, day, lesson, id: `lesson_${Date.now()}`, deletedAt: Date.now() }];
+          });
+          break;
+        }
+        case "lesson:restore": {
+          const lr = payload.item;
+          setLessonTrash((pv) => pv.filter((t) => !(t.day === lr.day && t.lesson === lr.lesson)));
+          setData((prev) => {
+            const next = { ...prev };
+            if (!next[lr.day]) next[lr.day] = {};
+            next[lr.day] = { ...next[lr.day], [lr.lesson]: lr };
+            return next;
+          });
+          break;
+        }
+        case "lesson:delete-permanent": {
+          setLessonTrash((pv) => pv.filter((t) => !(t.day === payload.day && t.lesson === payload.lesson)));
+          break;
+        }
+        case "trash:restore-all": {
+          if (payload.type === "lessons") {
+            setLessonTrash([]);
+          }
+          break;
+        }
+        case "trash:delete-all": {
+          if (payload.type === "lessons") {
+            setLessonTrash([]);
+            setSelectedLessonTrash(new Set());
+          }
+          break;
+        }
+        case "trash:restore-selected": {
+          if (payload.type === "lessons" && payload.items) {
+            for (const item of payload.items) {
+              setLessonTrash((pv) => pv.filter((t) => !(t.day === item.day && t.lesson === item.lesson)));
+              setData((prev) => {
+                const next = { ...prev };
+                if (!next[item.day]) next[item.day] = {};
+                next[item.day] = { ...next[item.day], [item.lesson]: item };
+                return next;
+              });
+            }
+            setSelectedLessonTrash(new Set());
+          }
+          break;
+        }
+        case "trash:delete-selected": {
+          if (payload.type === "lessons" && payload.ids) {
+            for (const id of payload.ids) {
+              setLessonTrash((pv) => pv.filter((t) => !(t.day === id.day && t.lesson === id.lesson)));
+            }
+            setSelectedLessonTrash(new Set());
+          }
+          break;
+        }
+      }
+    };
+    s.on("sync:patch", handler);
+    return () => s.off("sync:patch", handler);
+  }, []);
 
   // ESC close modal + body scroll lock
   useEffect(() => {
@@ -279,6 +380,10 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
 
     setIsModalOpen(false);
     setSelectedCell(null);
+
+    // Sync lesson to server
+    const lessonPayload = { day: selectedCell.day, lesson: selectedCell.lesson, ...form, name: form.name.trim() };
+    api.patch(isNew ? "lesson:add" : "lesson:update", { lesson: lessonPayload }).catch(() => {});
   };
 
   const handleDelete = () => {
@@ -333,6 +438,10 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
 
     setIsModalOpen(false);
     setSelectedCell(null);
+
+    // Sync to server
+    const lessonPayload = { day: selectedCell.day, lesson: selectedCell.lesson, ...lessonData };
+    api.patch("lesson:delete", { lesson: lessonPayload }).catch(() => {});
   };
 
   const undoLessonDelete = () => {
@@ -362,6 +471,10 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
 
     if (lessonUndoTimeoutRef.current) clearTimeout(lessonUndoTimeoutRef.current);
     setRecentlyDeletedLesson(null);
+
+    const { deletedAt: dd, id: di, ...restoreData } = recentlyDeletedLesson;
+    api.patch("lesson:restore", { item: { day, lesson, ...restoreData } }).catch(() => {});
+    notify("Lesson restored");
   };
 
   const toggleLessonAttended = (day, lesson) => {
@@ -402,10 +515,17 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     }, 300);
 
     setLessonTrash((prev) => prev.filter((item) => item.id !== id));
+    api.patch("lesson:restore", { item: trashItem }).catch(() => {});
+    notify("Lesson restored");
   };
 
   const permanentlyDeleteLesson = (id) => {
+    const item = lessonTrash.find((t) => t.id === id);
     setLessonTrash((prev) => prev.filter((item) => item.id !== id));
+    if (item) {
+      api.patch("lesson:delete-permanent", { day: item.day, lesson: item.lesson }).catch(() => {});
+      notify("Lesson permanently deleted");
+    }
   };
 
   const getLesson = (day, lesson) => data[day]?.[lesson];
@@ -447,6 +567,83 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     });
     setDragSource(null);
     setDragTarget(null);
+  };
+
+  const toggleSelectLessonTrash = (id) => {
+    setSelectedLessonTrash((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllLessonTrash = () => {
+    if (selectedLessonTrash.size === lessonTrash.length) {
+      setSelectedLessonTrash(new Set());
+    } else {
+      setSelectedLessonTrash(new Set(lessonTrash.map((t) => t.id)));
+    }
+  };
+
+  const restoreSelectedLessonTrash = () => {
+    const selected = lessonTrash.filter((t) => selectedLessonTrash.has(t.id));
+    if (selected.length === 0) return;
+    for (const item of selected) {
+      const { id, deletedAt, ...lessonData } = item;
+      const key = `${item.day}-${item.lesson}`;
+      setData((prev) => ({
+        ...prev,
+        [item.day]: { ...(prev[item.day] || {}), [item.lesson]: lessonData },
+      }));
+      setNewCells((prev) => new Set(prev).add(key));
+      setTimeout(() => setNewCells((prev) => { const n = new Set(prev); n.delete(key); return n; }), 300);
+    }
+    setLessonTrash((prev) => prev.filter((t) => !selectedLessonTrash.has(t.id)));
+    api.patch("trash:restore-selected", { type: "lessons", items: selected }).catch(() => {});
+    setSelectedLessonTrash(new Set());
+    notify(`${selected.length} lesson(s) restored`);
+  };
+
+  const deleteSelectedLessonTrash = () => {
+    const ids = lessonTrash.filter((t) => selectedLessonTrash.has(t.id)).map((t) => ({ day: t.day, lesson: t.lesson }));
+    setLessonTrash((prev) => prev.filter((t) => !selectedLessonTrash.has(t.id)));
+    api.patch("trash:delete-selected", { type: "lessons", ids }).catch(() => {});
+    setSelectedLessonTrash(new Set());
+    notify(`${ids.length} lesson(s) permanently deleted`);
+  };
+
+  const restoreAllLessonTrash = () => {
+    const items = [...lessonTrash];
+    for (const item of items) {
+      const { id, deletedAt, ...lessonData } = item;
+      const key = `${item.day}-${item.lesson}`;
+      setData((prev) => ({
+        ...prev,
+        [item.day]: { ...(prev[item.day] || {}), [item.lesson]: lessonData },
+      }));
+      setNewCells((prev) => new Set(prev).add(key));
+      setTimeout(() => setNewCells((prev) => { const n = new Set(prev); n.delete(key); return n; }), 300);
+    }
+    setLessonTrash([]);
+    api.patch("trash:restore-all", { type: "lessons" }).catch(() => {});
+    notify("All lessons restored");
+  };
+
+  const deleteAllLessonTrash = () => {
+    const count = lessonTrash.length;
+    setLessonTrash([]);
+    setSelectedLessonTrash(new Set());
+    api.patch("trash:delete-all", { type: "lessons" }).catch(() => {});
+    notify(`${count} lesson(s) permanently deleted`);
+  };
+
+  const showLessonConfirm = (title, message, onConfirm, variant = "danger") => {
+    setLessonConfirmDialog({ open: true, title, message, onConfirm, variant });
+  };
+
+  const closeLessonConfirm = () => {
+    setLessonConfirmDialog({ open: false, title: "", message: "", onConfirm: null, variant: "danger" });
   };
 
   const isDragTarget = (day, lesson) =>
@@ -857,66 +1054,70 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
 
       {/* Lesson Trash Modal */}
       {isLessonTrashOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setIsLessonTrashOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-[90%] sm:w-[540px] lg:w-[620px] max-h-[80vh] sm:max-h-[70vh] bg-zinc-900 rounded-2xl shadow-2xl shadow-black/40 border border-zinc-800 flex flex-col animate-scale-in"
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 flex-shrink-0">
-              <h2 className="text-xl font-bold text-white">Lesson Trash</h2>
-              <button
-                onClick={() => setIsLessonTrashOpen(false)}
-                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsLessonTrashOpen(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[90%] sm:w-[540px] lg:w-[620px] max-h-[80vh] sm:max-h-[70vh] bg-zinc-900 rounded-2xl shadow-2xl shadow-black/40 border border-zinc-800 flex flex-col animate-scale-in">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-bold text-white">Lesson Trash</h2>
+                {lessonTrash.length > 0 && <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{lessonTrash.length} items</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                {lessonTrash.length > 0 && (
+                  <>
+                    <button onClick={selectAllLessonTrash} className="text-xs text-zinc-400 hover:text-white px-2 py-1 rounded-lg hover:bg-zinc-800 transition-all">
+                      {selectedLessonTrash.size === lessonTrash.length ? "Deselect All" : "Select All"}
+                    </button>
+                    <button onClick={restoreAllLessonTrash} className="text-xs text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded-lg hover:bg-zinc-800 transition-all">
+                      <RotateCcw className="w-3.5 h-3.5 inline mr-1" />Restore All
+                    </button>
+                    <button onClick={() => showLessonConfirm("Delete All", "These items will be permanently deleted. This action cannot be undone.", deleteAllLessonTrash)} className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-zinc-800 transition-all">
+                      <Trash2 className="w-3.5 h-3.5 inline mr-1" />Delete All
+                    </button>
+                  </>
+                )}
+                <button onClick={() => setIsLessonTrashOpen(false)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+            {selectedLessonTrash.size > 0 && (
+              <div className="flex items-center gap-2 px-5 py-2 bg-zinc-800/30 border-b border-zinc-800/50">
+                <span className="text-xs text-zinc-400">{selectedLessonTrash.size} selected</span>
+                <button onClick={restoreSelectedLessonTrash} className="text-xs px-2.5 py-1 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition-all">
+                  <RotateCcw className="w-3 h-3 inline mr-1" />Restore Selected
+                </button>
+                <button onClick={() => showLessonConfirm("Delete Selected", `${selectedLessonTrash.size} item(s) will be permanently deleted. This action cannot be undone.`, deleteSelectedLessonTrash)} className="text-xs px-2.5 py-1 rounded-lg text-red-400 hover:bg-red-500/20 transition-all">
+                  <Trash2 className="w-3 h-3 inline mr-1" />Delete Selected
+                </button>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
               {lessonTrash.length === 0 ? (
-                <p className="text-zinc-500 text-center py-8">Trash is empty</p>
+                <p className="text-zinc-500 text-center py-8 text-sm">Trash is empty</p>
               ) : (
                 lessonTrash.map((item) => {
-                  const daysLeft = Math.ceil(
-                    TRASH_DAYS - (Date.now() - item.deletedAt) / (1000 * 60 * 60 * 24)
-                  );
+                  const daysLeft = Math.ceil(TRASH_DAYS - (Date.now() - item.deletedAt) / (1000 * 60 * 60 * 24));
+                  const checked = selectedLessonTrash.has(item.id);
                   return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between bg-zinc-800/50 px-4 py-3 rounded-xl flex-shrink-0"
-                    >
+                    <div key={item.id} className={`flex items-center gap-3 bg-zinc-800/50 px-4 py-3 rounded-xl transition-all ${checked ? "ring-2 ring-emerald-500/30 bg-zinc-800/80" : ""}`}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleSelectLessonTrash(item.id)} className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 accent-emerald-500 cursor-pointer flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm truncate">{item.name}</p>
-                        <p className="text-zinc-500 text-xs mt-1">
-                          {DAYS[item.day]} • Lesson {item.lesson}
+                        <p className={`text-sm truncate ${checked ? "text-white" : "text-zinc-300"}`}>{item.name}</p>
+                        <p className="text-zinc-500 text-xs mt-0.5">
+                          {DAYS[item.day]} &middot; Lesson {item.lesson}
                         </p>
-                        {item.startTime && item.endTime && (
-                          <p className="text-zinc-500 text-xs">
-                            {item.startTime} — {item.endTime}
-                          </p>
-                        )}
-                        {item.room && (
-                          <p className="text-zinc-500 text-xs">Room {item.room}</p>
-                        )}
-                        <p className="text-zinc-500 text-xs mt-1">{daysLeft} days left</p>
+                        {item.startTime && item.endTime && <p className="text-zinc-500 text-xs">{item.startTime} &mdash; {item.endTime}</p>}
+                        {item.room && <p className="text-zinc-500 text-xs">Room {item.room}</p>}
+                        <p className="text-zinc-500 text-xs mt-0.5">{daysLeft} days left</p>
                       </div>
-                      <div className="flex gap-2 ml-4 flex-shrink-0">
-                        <button
-                          onClick={() => restoreLesson(item)}
-                          className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-lg hover:bg-emerald-500/30 transition-all"
-                        >
-                          Restore
-                        </button>
-                        <button
-                          onClick={() => permanentlyDeleteLesson(item.id)}
-                          className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/30 transition-all"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <button onClick={() => restoreLesson(item)} className="px-2.5 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-lg hover:bg-emerald-500/30 transition-all flex-shrink-0" title="Restore">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => permanentlyDeleteLesson(item.id)} className="px-2.5 py-1.5 bg-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/30 transition-all flex-shrink-0" title="Delete forever">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   );
                 })
@@ -940,6 +1141,16 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={lessonConfirmDialog.open}
+        title={lessonConfirmDialog.title}
+        message={lessonConfirmDialog.message}
+        variant={lessonConfirmDialog.variant}
+        confirmLabel={lessonConfirmDialog.variant === "danger" ? "Delete" : "Confirm"}
+        onConfirm={() => { lessonConfirmDialog.onConfirm?.(); closeLessonConfirm(); }}
+        onCancel={closeLessonConfirm}
+      />
     </div>
   );
 }

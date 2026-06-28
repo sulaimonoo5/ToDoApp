@@ -11,6 +11,8 @@ export async function loadFromServer() {
     if (data.goals) localStorage.setItem("goals", JSON.stringify(data.goals));
     if (data.schedule) localStorage.setItem("scheduleData", JSON.stringify(data.schedule));
     if (data.streak) localStorage.setItem("dailyStreak", JSON.stringify(data.streak));
+    if (data.taskTrash) localStorage.setItem("taskTrash", JSON.stringify(data.taskTrash));
+    if (data.scheduleTrash) localStorage.setItem("scheduleTrash", JSON.stringify(data.scheduleTrash));
   }
   return { data, user };
 }
@@ -21,6 +23,8 @@ export async function saveToServer() {
   try { const v = localStorage.getItem("goals"); if (v) data.goals = JSON.parse(v); } catch {}
   try { const v = localStorage.getItem("scheduleData"); if (v) data.schedule = JSON.parse(v); } catch {}
   try { const v = localStorage.getItem("dailyStreak"); if (v) data.streak = JSON.parse(v); } catch {}
+  try { const v = localStorage.getItem("taskTrash"); if (v) data.taskTrash = JSON.parse(v); } catch {}
+  try { const v = localStorage.getItem("scheduleTrash"); if (v) data.scheduleTrash = JSON.parse(v); } catch {}
   await api.request("/api/sync", {
     method: "POST",
     body: JSON.stringify(data),
@@ -39,6 +43,8 @@ export async function importLocalData() {
   try { const v = localStorage.getItem("goals"); data.goals = v ? JSON.parse(v) : []; } catch { data.goals = []; }
   try { const v = localStorage.getItem("scheduleData"); data.schedule = v ? JSON.parse(v) : {}; } catch { data.schedule = {}; }
   try { const v = localStorage.getItem("dailyStreak"); data.streak = v ? JSON.parse(v) : {}; } catch { data.streak = {}; }
+  try { const v = localStorage.getItem("taskTrash"); data.taskTrash = v ? JSON.parse(v) : []; } catch { data.taskTrash = []; }
+  try { const v = localStorage.getItem("scheduleTrash"); data.scheduleTrash = v ? JSON.parse(v) : []; } catch { data.scheduleTrash = []; }
   await api.request("/api/sync", {
     method: "POST",
     body: JSON.stringify(data),

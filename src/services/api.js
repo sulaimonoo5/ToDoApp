@@ -80,3 +80,10 @@ export function getLoginHistory(limit = 50) {
 export function getSecurity() {
   return request("/api/auth/security");
 }
+
+export async function patch(type, payload) {
+  return request("/api/sync/patch", {
+    method: "POST",
+    body: JSON.stringify({ type, payload }),
+  });
+}
