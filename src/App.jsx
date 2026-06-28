@@ -706,8 +706,6 @@ function App() {
                             <div key={list.id} className={`flex items-center justify-between px-4 py-2.5 text-sm transition-all duration-200 min-w-0 overflow-hidden ${list.id === currentListId ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-300 hover:bg-zinc-700"}`}>
                               {editingListId === list.id ? (
                                 <input type="text" value={editingListName} onChange={(e) => setEditingListName(e.target.value.slice(0, 50))} onKeyDown={(e) => { if (e.key === "Enter") saveEditList(); if (e.key === "Escape") { setEditingListId(null); setEditingListName(""); } }} onBlur={saveEditList} autoFocus className="flex-1 bg-zinc-700/50 px-2 py-1 rounded text-white text-sm focus:outline-none" />
-        ) : currentPage === "account" ? (
-          <AccountPage onBack={() => setCurrentPage("home")} />
         ) : (
                                 <button onClick={() => switchToList(list.id)} className="flex-1 text-left truncate min-w-0">{list.name}</button>
                               )}
@@ -828,6 +826,8 @@ function App() {
             onEditGoal={editGoal}
             onDeleteGoal={deleteGoal}
           />
+        ) : currentPage === "account" ? (
+          <AccountPage onBack={() => setCurrentPage("home")} />
         ) : (
           <Home
             onToggleSidebar={handleToggle}
