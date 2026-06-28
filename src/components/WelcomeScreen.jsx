@@ -2,6 +2,7 @@
 // time detection | schedule analysis | greeting selection | quote fallback | startup animation | next lesson logic
 
 import React, { useState, useEffect } from "react";
+import { Sun, SunDim, Moon, Sparkles } from "lucide-react";
 
 const QUOTES = [
   "Stay focused. One step at a time.",
@@ -33,14 +34,14 @@ const getTimePeriod = () => {
   return "night";
 };
 
-const getGreeting = (period) => {
-  switch (period) {
-    case "morning": return { text: "Good Morning", emoji: "☀️" };
-    case "afternoon": return { text: "Good Afternoon", emoji: "🌤️" };
-    case "evening": return { text: "Good Evening", emoji: "🌙" };
-    case "night": return { text: "Welcome Back", emoji: "🌌" };
-  }
-};
+  const getGreeting = (period) => {
+    switch (period) {
+      case "morning": return { text: "Good Morning" };
+      case "afternoon": return { text: "Good Afternoon" };
+      case "evening": return { text: "Good Evening" };
+      case "night": return { text: "Welcome Back" };
+    }
+  };
 
 const getTodayDayIndex = () => {
   const d = new Date().getDay();
@@ -219,10 +220,17 @@ function WelcomeScreen({ onComplete }) {
             mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[30px]"
           }`}
         >
-          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-            {greeting.text}
-          </h1>
-          <div className="text-3xl mt-3">{greeting.emoji}</div>
+            <div className="flex flex-col items-center">
+            <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+              {greeting.text}
+            </h1>
+            <div className="text-3xl mt-3">
+              {period === "morning" ? <Sun className="w-8 h-8" /> :
+               period === "afternoon" ? <SunDim className="w-8 h-8" /> :
+               period === "evening" ? <Moon className="w-8 h-8" /> :
+               <Sparkles className="w-8 h-8" />}
+            </div>
+          </div>
         </div>
 
         {/* Этап 2: информация о расписании или цитата */}

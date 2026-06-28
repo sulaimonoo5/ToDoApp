@@ -19,6 +19,7 @@ import WelcomeScreen from "./components/WelcomeScreen";
 import { useAuth } from "./context/AuthContext";
 import RightIcon from "./icons/RightIcon";
 import ChevronIcon from "./icons/ChevronIcon";
+import { CalendarDays, Clock, Pencil, Trash2, Check, X } from "lucide-react";
 import * as notificationService from "./services/notificationService";
 import * as streakService from "./services/streakService";
 import * as syncService from "./services/syncService";
@@ -711,12 +712,12 @@ function App() {
                               )}
                               {list.id === currentListId && (
                                 <div className="flex gap-1 ml-2">
-                                  <button onClick={() => startEditList(list)} className="p-1 text-zinc-400 hover:text-emerald-400 transition-colors" title="Rename">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    <button onClick={() => startEditList(list)} className="p-1 text-zinc-400 hover:text-emerald-400 transition-colors" title="Rename">
+                                    <Pencil className="w-4 h-4" />
                                   </button>
                                   {lists.length > 1 && (
                                     <button onClick={() => deleteList(list.id)} className="p-1 text-zinc-400 hover:text-red-400 transition-colors" title="Delete">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                      <Trash2 className="w-4 h-4" />
                                     </button>
                                   )}
                                 </div>
@@ -742,13 +743,13 @@ function App() {
 
                     {/* Кнопка корзины */}
                     <button onClick={() => setIsTrashOpen(true)} className="relative p-2 bg-zinc-800/70 hover:bg-zinc-700/70 rounded-xl transition-all duration-200" title="Trash">
-                      <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      <Trash2 className="w-5 h-5 text-zinc-400" />
                       {trash.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">{trash.length}</span>}
                     </button>
 
                     {/* Дата и время */}
-                    <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap">📅 {getDateStr(now)}</span>
-                    <span className="text-xs text-zinc-400 font-mono whitespace-nowrap">🕒 {getTimeStr(now)}</span>
+                    <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap"><CalendarDays className="w-3 h-3 inline mr-1" />{getDateStr(now)}</span>
+                    <span className="text-xs text-zinc-400 font-mono whitespace-nowrap"><Clock className="w-3 h-3 inline mr-1" />{getTimeStr(now)}</span>
                   </div>
                 </div>
               </div>
@@ -778,7 +779,7 @@ function App() {
                   {tasks.length > 0 && completedCount === tasks.length && (
                     <div className="mt-4 text-center animate-fade-in">
                       <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
-                        <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <Check className="w-5 h-5 text-emerald-400" strokeWidth={2.5} />
                         <p className="text-emerald-400 text-sm font-medium">All tasks completed</p>
                       </div>
                     </div>
@@ -855,18 +856,7 @@ function App() {
               <button
                 onClick={() => setIsTrashOpen(false)}
                 className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
 

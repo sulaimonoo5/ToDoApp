@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import RightIcon from "../icons/RightIcon";
 import { updateStreak } from "../services/streakService";
+import { CalendarDays, Clock, Trash2, Check, Pencil, Lightbulb, BookOpen, X } from "lucide-react";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LESSONS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -479,17 +480,15 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                 className="relative p-2 bg-zinc-800/70 hover:bg-zinc-700/70 rounded-xl transition-all duration-200"
                 title="Lesson Trash"
               >
-                <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                <Trash2 className="w-5 h-5 text-zinc-400" />
                 {lessonTrash.length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
                     {lessonTrash.length}
                   </span>
                 )}
               </button>
-              <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap">📅 {getDateStr(now)}</span>
-              <span className="text-xs text-zinc-400 font-mono whitespace-nowrap">🕒 {getTimeStr(now)}</span>
+              <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap"><CalendarDays className="w-3 h-3 inline mr-1" />{getDateStr(now)}</span>
+              <span className="text-xs text-zinc-400 font-mono whitespace-nowrap"><Clock className="w-3 h-3 inline mr-1" />{getTimeStr(now)}</span>
             </div>
           </div>
         </div>
@@ -525,7 +524,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-zinc-500">No more lessons today</p>
                   {(nextLessonInfo && nextLessonInfo.status === 'noMoreToday') && (
-                    <p className="text-xs text-zinc-600 font-medium">✓ Done</p>
+                    <p className="text-xs text-zinc-600 font-medium"><Check className="w-3 h-3 inline mr-0.5" />Done</p>
                   )}
                 </div>
               )}
@@ -653,9 +652,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                                     }`}
                                   >
                                     {lessonData.attended && (
-                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                      </svg>
+                                      <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
                                     )}
                                   </span>
                                   <span className={`text-sm font-semibold leading-tight truncate ${COLOR_MAP[lessonData.color]?.text || "text-white"}`}>
@@ -678,7 +675,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                                 )}
                               </div>
 
-                              <div className="absolute top-1 right-1 text-xs text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity duration-150">✏️</div>
+                              <div className="absolute top-1 right-1 text-xs text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity duration-150"><Pencil className="w-3 h-3" /></div>
                             </>
                           ) : (
                             <div className="flex items-center justify-center h-full cursor-pointer">
@@ -694,7 +691,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
 
               {/* Drag & Drop hint */}
               <div className="px-4 py-3 text-center">
-                <p className="text-xs text-zinc-600">💡 Drag lessons between cells to quickly reorganize your schedule</p>
+                <p className="text-xs text-zinc-600"><Lightbulb className="w-3 h-3 inline mr-1" />Drag lessons between cells to quickly reorganize your schedule</p>
               </div>
             </div>
 
@@ -702,7 +699,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
             {!hasAnyLesson && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 <div className="text-center bg-zinc-950/50 backdrop-blur-[2px] px-8 py-6 rounded-2xl border border-zinc-800/30 animate-fade-in">
-                  <div className="text-5xl mb-4 opacity-60">📚</div>
+                  <BookOpen className="w-12 h-12 text-zinc-500 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-zinc-300 mb-2">No lessons yet</h3>
                   <p className="text-sm text-zinc-500 mb-4">Click any cell to add your first lesson</p>
                   <button
@@ -874,9 +871,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
                 onClick={() => setIsLessonTrashOpen(false)}
                 className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
 

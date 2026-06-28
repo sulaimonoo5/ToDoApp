@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from "react";
 import RightIcon from "../icons/RightIcon";
 import { getStreak } from "../services/streakService";
+import { CalendarDays, Clock, Flame, Target, ClipboardList, NotebookPen, Check, List } from "lucide-react";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -177,7 +178,7 @@ function Home({
     if (h >= 20 || h < 7) {
       const allDone = completedCount === totalTasks && totalTasks > 0;
       return allDone
-        ? "All tasks completed 🎉"
+        ? "All tasks completed"
         : "Day completed. See you tomorrow.";
     }
     if (
@@ -188,7 +189,7 @@ function Home({
       return "You are free today.";
     }
     const allDone = completedCount === totalTasks && totalTasks > 0;
-    if (allDone) return "All tasks completed 🎉";
+    if (allDone) return "All tasks completed";
     return `You have ${todayLessons.length} lesson${todayLessons.length !== 1 ? "s" : ""} and ${currentPending.length} task${currentPending.length !== 1 ? "s" : ""} remaining today.`;
   };
 
@@ -259,8 +260,8 @@ function Home({
             </button>
             <h1 className="text-xl sm:text-2xl font-bold text-white">{greeting}</h1>
             <div className="ml-auto flex items-center gap-3">
-              <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap">📅 {getDateStr(now)}</span>
-              <span className="text-xs text-zinc-400 font-mono whitespace-nowrap">🕒 {getTimeStr(now)}</span>
+              <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap"><CalendarDays className="w-3 h-3 inline mr-1" />{getDateStr(now)}</span>
+              <span className="text-xs text-zinc-400 font-mono whitespace-nowrap"><Clock className="w-3 h-3 inline mr-1" />{getTimeStr(now)}</span>
             </div>
           </div>
         </div>
@@ -276,7 +277,7 @@ function Home({
             </p>
             {streakData.currentStreak > 0 && (
               <div className="mt-3 flex items-center gap-2">
-                <span className="text-base">🔥</span>
+                <Flame className="w-5 h-5 text-orange-400" />
                 <span className="text-sm font-semibold text-orange-400">{streakData.currentStreak} Day Streak</span>
               </div>
             )}
@@ -366,7 +367,7 @@ function Home({
                   return (
                     <div key={goal.id}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-zinc-300 truncate">🎯 {goal.name}</span>
+                        <span className="text-sm text-zinc-300 truncate"><Target className="w-3.5 h-3.5 inline mr-1 text-zinc-400" />{goal.name}</span>
                         <span className="text-xs text-emerald-400 font-medium ml-2">{pct}%</span>
                       </div>
                       <div className="w-full h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
@@ -470,12 +471,7 @@ function Home({
                       onClick={() => onToggle(task.id)}
                       className="w-4 h-4 rounded border border-zinc-600 flex-shrink-0 hover:border-emerald-500 transition-colors">
                       {task.completed && (
-                        <svg
-                          className="w-full h-full text-emerald-400"
-                          fill="currentColor"
-                          viewBox="0 0 20 20">
-                          <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
-                        </svg>
+                        <Check className="w-full h-full text-emerald-400" strokeWidth={3} />
                       )}
                     </button>
                     <p className="flex-1 text-sm text-white truncate">
@@ -523,18 +519,18 @@ function Home({
               <button
                 onClick={() => onPageChange("tasks")}
                 className="bg-zinc-800/30 hover:bg-zinc-800/50 border border-zinc-700/30 rounded-xl px-4 py-3 text-center transition-all duration-200">
-                <span className="text-lg block mb-1">📋</span>
+                <ClipboardList className="w-5 h-5 text-zinc-400 mx-auto mb-1" />
                 <span className="text-xs text-zinc-400">New Task</span>
               </button>
 
               <button
                 onClick={() => onPageChange("schedule")}
                 className="bg-zinc-800/30 hover:bg-zinc-800/50 border border-zinc-700/30 rounded-xl px-4 py-3 text-center transition-all duration-200">
-                <span className="text-lg block mb-1">📅</span>
+                <CalendarDays className="w-5 h-5 text-zinc-400 mx-auto mb-1" />
                 <span className="text-xs text-zinc-400">Open Schedule</span>
               </button>
               <div className="relative bg-zinc-800/15 border border-zinc-700/20 rounded-xl px-4 py-3 text-center opacity-60 cursor-default pointer-events-none select-none">
-                <span className="text-lg block mb-1 opacity-70">📅</span>
+                <CalendarDays className="w-5 h-5 text-zinc-500 mx-auto mb-1 opacity-70" />
                 <span className="text-xs text-zinc-500">Calendar</span>
                 <span className="absolute -top-1.5 -right-1.5 bg-zinc-700/80 text-zinc-400 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
                   Coming Soon
@@ -542,7 +538,7 @@ function Home({
               </div>
 
               <div className="relative bg-zinc-800/15 border border-zinc-700/20 rounded-xl px-4 py-3 text-center opacity-60 cursor-default pointer-events-none select-none">
-                <span className="text-lg block mb-1 opacity-70">📝</span>
+                <NotebookPen className="w-5 h-5 text-zinc-500 mx-auto mb-1 opacity-70" />
                 <span className="text-xs text-zinc-500">Notes</span>
                 <span className="absolute -top-1.5 -right-1.5 bg-zinc-700/80 text-zinc-400 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
                   Coming Soon

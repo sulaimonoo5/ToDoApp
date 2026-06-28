@@ -91,7 +91,7 @@ const checkSchedule = () => {
     if (lesson.room) lines.push(`Room ${lesson.room}`)
     if (lesson.teacher) lines.push(`Teacher: ${lesson.teacher}`)
 
-    const title = '📚 Upcoming Lesson'
+    const title = 'Upcoming Lesson'
     const body = lines.join('\n')
 
     // Отправляем системное уведомление через Electron IPC

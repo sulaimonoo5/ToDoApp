@@ -6,16 +6,12 @@
 
 import React from "react";
 import LeftIcon from "../icons/LeftIcon";
+import { House, ClipboardList, BookOpen, Target, UserRound } from "lucide-react";
 
 function Sidebar({ isOpen, onClose, currentPage, onPageChange }) {
-  // Пункты меню боковой панели
-  const menuItems = [
-    { name: "Home", icon: "🏠", page: "home" },
-    { name: "Tasks", icon: "✅", page: "tasks" },
-    { name: "Schedule", icon: "📚", page: "schedule" },
-    { name: "Goals", icon: "🎯", page: "goals" },
-    { name: "Account", icon: "👤", page: "account" },
-  ];
+  const NAV_ICONS = {
+    Home: House, Tasks: ClipboardList, Schedule: BookOpen, Goals: Target, Account: UserRound,
+  };
 
   // Обработчик клика: переключает страницу и закрывает sidebar на мобильных
   const handleClick = (page) => {
@@ -53,20 +49,24 @@ function Sidebar({ isOpen, onClose, currentPage, onPageChange }) {
 
           {/* Список навигации */}
           <nav className="flex-1 space-y-2">
-            {menuItems.map((item) => (
-              <button
-                key={item.page}
-                onClick={() => handleClick(item.page)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  currentPage === item.page
-                    ? "bg-emerald-500/20 text-emerald-400 border-l-2 border-emerald-500"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-white hover:translate-x-1"
-                }`}
-              >
-                <span className="text-lg">{item.icon}</span>
-                <span className="font-medium">{item.name}</span>
-              </button>
-            ))}
+            {["Home","Tasks","Schedule","Goals","Account"].map((name) => {
+              const Icon = NAV_ICONS[name];
+              const page = name.toLowerCase();
+              return (
+                <button
+                  key={page}
+                  onClick={() => handleClick(page)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    currentPage === page
+                      ? "bg-emerald-500/20 text-emerald-400 border-l-2 border-emerald-500"
+                      : "text-zinc-400 hover:bg-zinc-800 hover:text-white hover:translate-x-1"
+                  }`}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-medium">{name}</span>
+                </button>
+              );
+            })}
           </nav>
 
           {/* Нижняя часть: версия приложения */}

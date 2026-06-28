@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { Rocket } from "lucide-react";
 
 function RegisterPage({ onNavigate }) {
   const { signUp } = useAuth();
@@ -46,7 +47,7 @@ function RegisterPage({ onNavigate }) {
     <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🚀</div>
+          <Rocket className="w-12 h-12 text-zinc-400 mx-auto mb-3" />
           <h1 className="text-2xl font-bold text-white">Create Account</h1>
           <p className="text-zinc-500 text-sm mt-1">Start organizing your life</p>
         </div>

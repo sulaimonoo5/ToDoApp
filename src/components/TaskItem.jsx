@@ -6,6 +6,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import EditIcon from "../icons/EditIcon";
 import DeleteIcon from "../icons/DeleteIcon";
+import { GripVertical, Target } from "lucide-react";
 
 function TaskItem({
   task,
@@ -101,17 +102,7 @@ function TaskItem({
       <div
         className={`cursor-grab active:cursor-grabbing text-zinc-500 ${isMobile ? "" : "invisible group-hover:visible"} transition-all duration-200 flex-shrink-0`}
         onMouseDown={(e) => e.stopPropagation()}>
-        <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
-          <circle cx="5" cy="6" r="1.5" />
-          <circle cx="5" cy="12" r="1.5" />
-          <circle cx="5" cy="18" r="1.5" />
-          <circle cx="12" cy="6" r="1.5" />
-          <circle cx="12" cy="12" r="1.5" />
-          <circle cx="12" cy="18" r="1.5" />
-          <circle cx="19" cy="6" r="1.5" />
-          <circle cx="19" cy="12" r="1.5" />
-          <circle cx="19" cy="18" r="1.5" />
-        </svg>
+        <GripVertical className="w-4 sm:w-5 h-4 sm:h-5" />
       </div>
 
       {/* Чекбокс — переключает completed статус */}
@@ -184,7 +175,7 @@ function TaskItem({
       )}
       {!isEditing && task.goalId && (() => {
         const goal = goals.find((g) => g.id === task.goalId);
-        return goal ? <span className="text-[10px] text-emerald-500/60 ml-1 flex-shrink-0">🎯 {goal.name}</span> : null;
+        return goal ? <span className="text-[10px] text-emerald-500/60 ml-1 flex-shrink-0"><Target className="w-3 h-3 inline mr-0.5" />{goal.name}</span> : null;
       })()}
 
       {/* Кнопки Edit и Delete — на мобильных всегда видимы, на десктопе при hover */}

@@ -42,13 +42,4 @@ export function getDeviceInfo() {
   };
 }
 
-export function getDeviceIcon(type) {
-  const t = (type || "").toLowerCase();
-  if (t === "desktop") return "🖥";
-  if (t === "laptop") return "💻";
-  if (t === "android") return "📱";
-  if (t === "iphone") return "📱";
-  if (t === "tablet") return "📟";
-  if (t === "mobile") return "📱";
-  return "🖥";
-}
+

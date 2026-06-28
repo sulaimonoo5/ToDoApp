@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import RightIcon from "../icons/RightIcon";
+import { CalendarDays, Clock, Target } from "lucide-react";
 
 const getDateStr = (d) => {
   const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -63,8 +64,8 @@ function Goals({ onToggleSidebar, sidebarOpen, goals, lists, now, onAddGoal, onE
             </button>
             <h1 className="text-xl sm:text-2xl font-bold text-white">Goals</h1>
             <div className="ml-auto flex items-center gap-3">
-              <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap">📅 {getDateStr(now)}</span>
-              <span className="text-xs text-zinc-400 font-mono whitespace-nowrap">🕒 {getTimeStr(now)}</span>
+              <span className="hidden sm:inline text-xs text-zinc-400 whitespace-nowrap"><CalendarDays className="w-3 h-3 inline mr-1" />{getDateStr(now)}</span>
+              <span className="text-xs text-zinc-400 font-mono whitespace-nowrap"><Clock className="w-3 h-3 inline mr-1" />{getTimeStr(now)}</span>
             </div>
           </div>
         </div>
@@ -74,7 +75,7 @@ function Goals({ onToggleSidebar, sidebarOpen, goals, lists, now, onAddGoal, onE
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-8 space-y-5">
           {goals.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 animate-fade-in">
-              <div className="text-5xl mb-4 opacity-60">🎯</div>
+              <Target className="w-12 h-12 text-zinc-500 mb-4" />
               <h3 className="text-lg font-semibold text-zinc-300 mb-2">No goals yet</h3>
               <p className="text-sm text-zinc-500 mb-6 text-center">Create your first goal and start tracking progress</p>
               <button
