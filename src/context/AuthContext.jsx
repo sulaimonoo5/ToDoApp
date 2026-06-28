@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
       setUser(data.user);
     } catch {
       localStorage.removeItem("access_token");
+      localStorage.removeItem("session_id");
       setUser(null);
     } finally {
       setLoading(false);
@@ -29,8 +30,9 @@ export function AuthProvider({ children }) {
   }, [loadUser]);
 
   const signIn = async (email, password, remember) => {
-    const data = await api.login({ email, password });
+    const data = await api.login({ email, password, remember });
     localStorage.setItem("access_token", data.token);
+    localStorage.setItem("session_id", data.sessionId);
     if (remember) localStorage.setItem("remember_me", "true");
     else localStorage.removeItem("remember_me");
     setUser(data.user);
@@ -39,12 +41,14 @@ export function AuthProvider({ children }) {
   const signUp = async (name, email, password) => {
     const data = await api.register({ name, email, password });
     localStorage.setItem("access_token", data.token);
+    localStorage.setItem("session_id", data.sessionId);
     setUser(data.user);
   };
 
   const signOut = async () => {
     try { await api.logout(); } catch {}
     localStorage.removeItem("access_token");
+    localStorage.removeItem("session_id");
     localStorage.removeItem("remember_me");
     setUser(null);
   };

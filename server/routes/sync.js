@@ -182,11 +182,13 @@ router.get("/stats", authMiddleware, async (req, res) => {
     const taskCount = await pool.query("SELECT COUNT(*) as c FROM tasks WHERE user_id = $1", [userId]);
     const goalCount = await pool.query("SELECT COUNT(*) as c FROM goals WHERE user_id = $1", [userId]);
     const completedCount = await pool.query("SELECT COUNT(*) as c FROM tasks WHERE user_id = $1 AND completed = true", [userId]);
+    const lessonCount = await pool.query("SELECT COUNT(*) as c FROM schedule_entries WHERE user_id = $1", [userId]);
     const streakRow = await pool.query("SELECT current_streak, longest_streak FROM streaks WHERE user_id = $1", [userId]);
     res.json({
       tasks: parseInt(taskCount.rows[0].c),
       goals: parseInt(goalCount.rows[0].c),
       completedTasks: parseInt(completedCount.rows[0].c),
+      lessons: parseInt(lessonCount.rows[0].c),
       currentStreak: streakRow.rows[0]?.current_streak || 0,
       longestStreak: streakRow.rows[0]?.longest_streak || 0,
     });

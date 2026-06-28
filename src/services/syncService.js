@@ -1,6 +1,7 @@
 import * as api from "./api";
 
 const SYNCED_KEY = "data_imported";
+const LAST_SYNC_KEY = "lastSyncedAt";
 
 export async function loadFromServer() {
   const res = await api.request("/api/sync");
@@ -24,6 +25,12 @@ export async function saveToServer() {
     method: "POST",
     body: JSON.stringify(data),
   });
+  localStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
+}
+
+export function getLastSyncedAt() {
+  const val = localStorage.getItem(LAST_SYNC_KEY);
+  return val ? parseInt(val) : null;
 }
 
 export async function importLocalData() {

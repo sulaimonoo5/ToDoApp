@@ -100,7 +100,31 @@ async function initDB() {
         longest_streak INTEGER DEFAULT 0,
         last_active_date VARCHAR(20)
       );
+      CREATE TABLE IF NOT EXISTS sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        session_id VARCHAR(255) UNIQUE NOT NULL,
+        device_type VARCHAR(50) DEFAULT 'Unknown',
+        browser VARCHAR(100) DEFAULT 'Unknown',
+        os VARCHAR(100) DEFAULT 'Unknown',
+        ip VARCHAR(45) DEFAULT '',
+        location VARCHAR(255) DEFAULT '',
+        last_active_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS login_history (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        device_type VARCHAR(50) DEFAULT 'Unknown',
+        browser VARCHAR(100) DEFAULT 'Unknown',
+        os VARCHAR(100) DEFAULT 'Unknown',
+        ip VARCHAR(45) DEFAULT '',
+        location VARCHAR(255) DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
+    // Add last_password_change column if not exists
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_password_change TIMESTAMP DEFAULT NOW()`);
     console.log("Database tables ready");
   } catch (err) {
     console.error("Database init error:", err.message);
