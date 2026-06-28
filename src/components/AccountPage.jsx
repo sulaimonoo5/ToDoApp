@@ -2,15 +2,24 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../services/api";
 import * as syncService from "../services/syncService";
-import { getDeviceIcon } from "../utils/deviceInfo";
+import {
+  List, Target, BookOpen, Flame, CheckCircle2,
+  Monitor, Smartphone, Tablet, Laptop,
+} from "lucide-react";
 
-const STAT_ICONS = {
-  tasks: "📝",
-  goals: "🎯",
-  lessons: "📚",
-  streak: "🔥",
-  completed: "✅",
+const DEVICE_ICONS = {
+  desktop: Monitor,
+  laptop: Laptop,
+  android: Smartphone,
+  iphone: Smartphone,
+  tablet: Tablet,
+  mobile: Smartphone,
 };
+
+function DeviceIcon({ type, className }) {
+  const Icon = DEVICE_ICONS[(type || "").toLowerCase()] || Monitor;
+  return <Icon className={className} />;
+}
 
 const STAT_DESCRIPTIONS = {
   tasks: (s) => `${s.completedTasks} completed`,
@@ -44,10 +53,12 @@ function isActive(dateStr) {
 
 function StatCard({ icon, label, value, description, accent }) {
   return (
-    <div className="bg-zinc-800/30 border border-zinc-700/30 rounded-xl px-4 py-4 flex flex-col items-start gap-1 min-h-[130px]">
-      <span className="text-xl leading-none">{icon}</span>
-      <p className="text-zinc-500 text-xs font-medium whitespace-nowrap">{label}</p>
-      <p className={`text-2xl font-bold leading-tight truncate w-full ${accent ? "text-emerald-400" : "text-white"}`}>{value}</p>
+    <div className="bg-zinc-800/30 border border-zinc-700/30 rounded-xl px-4 py-4 flex flex-col justify-between min-h-[130px]">
+      <div>
+        <div className="text-emerald-400 mb-1">{icon}</div>
+        <p className="text-zinc-500 text-xs font-medium">{label}</p>
+      </div>
+      <p className={`text-2xl font-bold leading-tight break-words ${accent ? "text-emerald-400" : "text-white"}`}>{value}</p>
       <p className="text-zinc-600 text-[10px] leading-tight">{description}</p>
     </div>
   );
@@ -66,7 +77,7 @@ function ProfileCard({ user, onEditProfile, onChangePassword }) {
         </div>
         <div className="min-w-0">
           <h2 className="text-lg font-bold text-white truncate">{user.name}</h2>
-          <p className="text-sm text-zinc-400 truncate">{user.email}</p>
+          <p className="text-sm text-zinc-400 break-words">{user.email}</p>
           <p className="text-xs text-zinc-600 mt-0.5">Joined {joined}</p>
           <p className="text-xs text-zinc-700 mt-0.5 font-mono">ID: {user.id}</p>
         </div>
@@ -244,8 +255,8 @@ function AccountPage({ onBack }) {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
-      <div className="sticky top-0 z-20 bg-black/70 backdrop-blur-md border-b border-zinc-800/50">
+    <div className="h-full bg-black flex flex-col">
+      <div className="sticky top-0 z-20 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
           <button onClick={onBack} className="p-2 bg-zinc-800/80 rounded-xl hover:scale-110 active:scale-95 transition-all duration-200">
             <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,7 +267,7 @@ function AccountPage({ onBack }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-12 space-y-6">
 
           {/* Profile Card */}
@@ -271,11 +282,11 @@ function AccountPage({ onBack }) {
               </div>
             ) : stats && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-stretch">
-                <StatCard icon={STAT_ICONS.tasks} label="Tasks" value={stats.tasks} description={STAT_DESCRIPTIONS.tasks(stats)} />
-                <StatCard icon={STAT_ICONS.goals} label="Goals" value={stats.goals} description={STAT_DESCRIPTIONS.goals(stats)} />
-                <StatCard icon={STAT_ICONS.lessons} label="Lessons" value={stats.lessons || 0} description={STAT_DESCRIPTIONS.lessons(stats)} />
-                <StatCard icon={STAT_ICONS.streak} label="Current Streak" value={`${stats.currentStreak} Days`} description={STAT_DESCRIPTIONS.streak(stats)} accent />
-                <StatCard icon={STAT_ICONS.completed} label="Completed Tasks" value={stats.completedTasks} description={STAT_DESCRIPTIONS.completed(stats)} accent />
+                <StatCard icon={<List className="w-5 h-5" />} label="Tasks" value={stats.tasks} description={STAT_DESCRIPTIONS.tasks(stats)} />
+                <StatCard icon={<Target className="w-5 h-5" />} label="Goals" value={stats.goals} description={STAT_DESCRIPTIONS.goals(stats)} />
+                <StatCard icon={<BookOpen className="w-5 h-5" />} label="Lessons" value={stats.lessons || 0} description={STAT_DESCRIPTIONS.lessons(stats)} />
+                <StatCard icon={<Flame className="w-5 h-5" />} label="Current Streak" value={`${stats.currentStreak} Days`} description={STAT_DESCRIPTIONS.streak(stats)} accent />
+                <StatCard icon={<CheckCircle2 className="w-5 h-5" />} label="Completed Tasks" value={stats.completedTasks} description={STAT_DESCRIPTIONS.completed(stats)} accent />
               </div>
             )}
           </div>
@@ -296,7 +307,7 @@ function AccountPage({ onBack }) {
                   return (
                     <div key={s.sessionId} className={`bg-zinc-800/50 rounded-xl px-4 py-3.5 flex items-center justify-between gap-3 ${s.isCurrent ? "ring-1 ring-emerald-500/30" : ""}`}>
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xl flex-shrink-0">{getDeviceIcon(s.deviceType)}</span>
+                        <DeviceIcon type={s.deviceType} className="w-5 h-5 text-zinc-400 flex-shrink-0" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-white text-sm font-medium truncate">{s.deviceType || "Unknown"}</span>
@@ -409,7 +420,7 @@ function AccountPage({ onBack }) {
                         <div key={i} className="bg-zinc-800/50 rounded-lg px-3.5 py-2.5 flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-base flex-shrink-0">{getDeviceIcon(h.deviceType)}</span>
+                              <DeviceIcon type={h.deviceType} className="w-4 h-4 text-zinc-400 flex-shrink-0" />
                               <span className="text-white text-xs font-medium">{h.deviceType || "Unknown"}</span>
                             </div>
                             <div className="flex gap-2 mt-0.5">
