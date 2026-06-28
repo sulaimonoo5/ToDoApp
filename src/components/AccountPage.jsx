@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../services/api";
+import * as syncService from "../services/syncService";
 
 function AccountPage({ onBack }) {
   const { user, signOut, updateUser } = useAuth();
   const [tab, setTab] = useState("profile");
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNew, setConfirmNew] = useState("");
@@ -60,30 +63,26 @@ function AccountPage({ onBack }) {
     }
   };
 
+  const [importStatus, setImportStatus] = useState(null);
+
   const handleImport = async () => {
+    setImportStatus("importing");
     try {
-      const payload = {
-        tasks: JSON.parse(localStorage.getItem("todoLists") || "[]"),
-        goals: JSON.parse(localStorage.getItem("goals") || "[]"),
-        schedule: JSON.parse(localStorage.getItem("scheduleData") || "{}"),
-        statistics: JSON.parse(localStorage.getItem("dailyStreak") || "{}"),
-      };
-      const token = localStorage.getItem("access_token");
-      const res = await fetch("/api/data/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        alert("Data imported successfully!");
-      } else {
-        const data = await res.json();
-        alert("Import failed: " + (data.error || "Unknown error"));
-      }
+      await syncService.importLocalData();
+      setImportStatus("done");
+      const s = await syncService.fetchStats();
+      setStats(s);
     } catch (err) {
-      alert("Import failed: " + err.message);
+      setImportStatus("error");
     }
   };
+
+  useEffect(() => {
+    syncService.fetchStats()
+      .then(setStats)
+      .catch(() => {})
+      .finally(() => setStatsLoading(false));
+  }, []);
 
   if (!user) return null;
 
@@ -118,6 +117,31 @@ function AccountPage({ onBack }) {
                 <p className="text-xs text-zinc-600 mt-0.5">Joined {joined}</p>
               </div>
             </div>
+            {statsLoading ? (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="bg-zinc-800/50 rounded-lg px-3 py-2 animate-pulse h-12" />
+                <div className="bg-zinc-800/50 rounded-lg px-3 py-2 animate-pulse h-12" />
+              </div>
+            ) : stats && (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="bg-zinc-800/50 rounded-lg px-3 py-2">
+                  <p className="text-zinc-500 text-xs">Tasks</p>
+                  <p className="text-white text-lg font-bold">{stats.tasks} <span className="text-emerald-400 text-xs font-normal">({stats.completedTasks} done)</span></p>
+                </div>
+                <div className="bg-zinc-800/50 rounded-lg px-3 py-2">
+                  <p className="text-zinc-500 text-xs">Goals</p>
+                  <p className="text-white text-lg font-bold">{stats.goals}</p>
+                </div>
+                <div className="bg-zinc-800/50 rounded-lg px-3 py-2">
+                  <p className="text-zinc-500 text-xs">Current Streak</p>
+                  <p className="text-emerald-400 text-lg font-bold">{stats.currentStreak} days</p>
+                </div>
+                <div className="bg-zinc-800/50 rounded-lg px-3 py-2">
+                  <p className="text-zinc-500 text-xs">Best Streak</p>
+                  <p className="text-emerald-400 text-lg font-bold">{stats.longestStreak} days</p>
+                </div>
+              </div>
+            )}
             <button onClick={signOut} className="mt-4 w-full bg-zinc-800/50 hover:bg-red-500/10 text-zinc-400 hover:text-red-400 border border-zinc-700/30 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200">
               Logout
             </button>
@@ -163,11 +187,20 @@ function AccountPage({ onBack }) {
 
           {/* Import local data */}
           <div className="bg-zinc-800/30 rounded-xl border border-zinc-700/30 px-5 py-5">
-            <h3 className="text-sm font-semibold text-white mb-2">Import Local Data</h3>
-            <p className="text-xs text-zinc-500 mb-4">Sync your existing local Tasks, Goals, and Schedule to your account.</p>
-            <button onClick={handleImport} className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-medium py-2.5 rounded-xl transition-all">
-              Import local data to my account
-            </button>
+            <h3 className="text-sm font-semibold text-white mb-2">Cloud Sync</h3>
+            <p className="text-xs text-zinc-500 mb-4">Your data is automatically synced to the cloud. You can also manually import local data from this device.</p>
+            {importStatus === "done" ? (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-center">
+                <p className="text-emerald-400 text-sm font-medium">Data imported successfully!</p>
+              </div>
+            ) : (
+              <button onClick={handleImport} disabled={importStatus === "importing"} className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-medium py-2.5 rounded-xl transition-all disabled:opacity-50">
+                {importStatus === "importing" ? "Importing..." : "Import local data"}
+              </button>
+            )}
+            {importStatus === "error" && (
+              <p className="text-red-400 text-xs mt-2">Import failed. Try again later.</p>
+            )}
           </div>
         </div>
       </div>

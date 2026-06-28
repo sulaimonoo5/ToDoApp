@@ -21,6 +21,8 @@ import RightIcon from "./icons/RightIcon";
 import ChevronIcon from "./icons/ChevronIcon";
 import * as notificationService from "./services/notificationService";
 import * as streakService from "./services/streakService";
+import * as syncService from "./services/syncService";
+import SyncImportDialog from "./components/SyncImportDialog";
 
 // Ключи для localStorage
 const LISTS_KEY = "todoLists";
@@ -123,6 +125,12 @@ function App() {
   // Текущая страница: 'tasks' | 'schedule'
   // Показывать WelcomeScreen при старте (только один раз за сессию)
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const serverLoadedRef = useRef(false);
+  const syncTimeoutRef = useRef(null);
+  const prevUserRef = useRef(null);
+  const syncIntervalRef = useRef(null);
 
   // Текущие задачи
   const tasks = getTasksFromLists(lists, currentListId);
@@ -293,6 +301,53 @@ function App() {
   useEffect(() => {
     localStorage.setItem(FILTER_KEY, filter);
   }, [filter]);
+
+  // Загрузка данных с сервера при авторизации / начальной загрузке
+  useEffect(() => {
+    if (loading || serverLoadedRef.current) return;
+    if (user) {
+      syncService.loadFromServer()
+        .then(({ data }) => {
+          serverLoadedRef.current = true;
+          const storedLists = localStorage.getItem(LISTS_KEY);
+          if (storedLists) setLists(JSON.parse(storedLists));
+          const storedGoals = localStorage.getItem(GOALS_KEY);
+          if (storedGoals) setGoals(JSON.parse(storedGoals));
+          if (data && syncService.hasLocalData() && (!data.lists || data.lists.length === 0) && !syncService.isDataImported()) {
+            setShowImportDialog(true);
+          }
+        })
+        .catch(() => { serverLoadedRef.current = true; });
+    } else {
+      serverLoadedRef.current = false;
+    }
+  }, [user, loading]);
+
+  // Авто-синхронизация при изменении списков или целей
+  useEffect(() => {
+    if (serverLoadedRef.current && user) {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = setTimeout(() => {
+        syncService.saveToServer().catch(() => {});
+      }, 2000);
+    }
+    return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
+  }, [lists, goals, user]);
+
+  // Периодическая синхронизация каждые 30 секунд (для schedule/streak)
+  useEffect(() => {
+    if (user) {
+      syncIntervalRef.current = setInterval(() => {
+        syncService.saveToServer().catch(() => {});
+      }, 30000);
+    }
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+    };
+  }, [user]);
 
   // Запуск Notification Service (читает localStorage напрямую)
   useEffect(() => {
@@ -549,6 +604,28 @@ function App() {
 
   const deleteGoal = (id) => {
     setGoals(goals.filter((g) => g.id !== id));
+  };
+
+  // Импорт локальных данных после регистрации
+  const handleImport = async () => {
+    setImporting(true);
+    try {
+      await syncService.importLocalData();
+      setShowImportDialog(false);
+      setImporting(false);
+      const storedLists = localStorage.getItem(LISTS_KEY);
+      if (storedLists) setLists(JSON.parse(storedLists));
+      const storedGoals = localStorage.getItem(GOALS_KEY);
+      if (storedGoals) setGoals(JSON.parse(storedGoals));
+    } catch {
+      setImporting(false);
+      setShowImportDialog(false);
+    }
+  };
+
+  const handleSkipImport = () => {
+    syncService.clearImportedFlag();
+    setShowImportDialog(false);
   };
 
   // Подсчёт выполненных задач
@@ -857,6 +934,13 @@ function App() {
       )}
     </div>
     )}
+      {showImportDialog && (
+        <SyncImportDialog
+          onImport={handleImport}
+          onSkip={handleSkipImport}
+          importing={importing}
+        />
+      )}
     </ErrorBoundary>
   );
 }
