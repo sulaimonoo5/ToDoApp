@@ -2,7 +2,7 @@
   "name": "todo-app",
   "version": "1.0.0",
   "description": "All-in-One Life Management App",
-  "main": "server/index.js",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
