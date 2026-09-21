@@ -278,6 +278,14 @@ function App() {
     }
   }, [currentListId]);
 
+  // Инвариант: currentListId всегда должен ссылаться на существующий список.
+  // После server-sync/импорта списки могут быть заменены, из-за чего старый id
+  // остаётся «висячим» и задача тихо не добавляется ни в один список.
+  useEffect(() => {
+    if (isLoadingRef.current || lists.length === 0) return;
+    setCurrentListId((prev) => (lists.some((l) => l.id === prev) ? prev : lists[0].id));
+  }, [lists]);
+
   // Загрузка состояния sidebar из localStorage при старте (только для десктопа)
   useEffect(() => {
     if (isDesktop) {
@@ -1056,11 +1064,11 @@ function App() {
 
                 {/* Прогресс */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-zinc-400 text-xs sm:text-sm">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-zinc-400 text-xs sm:text-sm min-w-0">
                       {tasks.length === 0 ? "No tasks yet" : `${completedCount} of ${tasks.length} completed`}
                     </p>
-                    <p className="text-zinc-500 text-xs sm:text-sm">{Math.round(progress)}%</p>
+                    <p className="text-zinc-500 text-xs sm:text-sm flex-shrink-0">{Math.round(progress)}%</p>
                   </div>
                   {tasks.length > 0 && (
                     <div className="w-full h-2 bg-zinc-800/50 rounded-full overflow-hidden">

@@ -61,39 +61,45 @@ function TaskInput({ onAdd, goals = [] }) {
               Add
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-2">
-            <span className="text-zinc-500 text-xs">Priority:</span>
-            {['low', 'medium', 'high'].map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPriority(p)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 ${
-                  priority === p
-                    ? p === 'high' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
-                    : p === 'medium' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
-                    : 'bg-zinc-700/50 text-zinc-300 border border-zinc-600/50'
-                    : 'bg-zinc-700/30 text-zinc-500 hover:bg-zinc-700/50 hover:text-zinc-300 border border-transparent'
-                }`}
-              >
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </button>
-            ))}
-            {goals.length > 0 && (
-              <>
-                <span className="text-zinc-500 text-xs ml-2">Goal:</span>
-                <select
-                  value={goalId}
-                  onChange={(e) => setGoalId(e.target.value)}
-                  className="bg-zinc-700/50 text-zinc-300 text-xs px-2 py-1 rounded-lg border border-zinc-600/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
-                >
-                  <option value="">None</option>
-                  {goals.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
+          <div className="px-2 pt-1.5 sm:pt-1">
+            <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+              <div className="space-y-1.5 sm:flex sm:items-center sm:gap-2">
+                <span className="text-zinc-500 text-xs">Priority</span>
+                <div className="flex flex-wrap gap-2">
+                  {['low', 'medium', 'high'].map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPriority(p)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                        priority === p
+                          ? p === 'high' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
+                          : p === 'medium' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
+                          : 'bg-zinc-700/50 text-zinc-300 border border-zinc-600/50'
+                          : 'bg-zinc-700/30 text-zinc-500 hover:bg-zinc-700/50 hover:text-zinc-300 border border-transparent'
+                      }`}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </button>
                   ))}
-                </select>
-              </>
-            )}
+                </div>
+              </div>
+              {goals.length > 0 && (
+                <div className="space-y-1.5 sm:flex sm:items-center sm:gap-2">
+                  <span className="text-zinc-500 text-xs">Goal</span>
+                  <select
+                    value={goalId}
+                    onChange={(e) => setGoalId(e.target.value)}
+                    className="w-full sm:w-auto min-w-0 bg-zinc-700/50 text-zinc-300 text-xs px-2 py-1.5 rounded-lg border border-zinc-600/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                  >
+                    <option value="">None</option>
+                    {goals.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </form>

@@ -93,7 +93,7 @@ function TaskItem({
 
   return (
     <div
-      className={`group flex items-center gap-2 sm:gap-3 bg-zinc-800/70 backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-4 shadow-lg shadow-black/10 border border-zinc-700/20 border-l-4 ${getPriorityBorder()} overflow-hidden ${isMobile ? "" : "hover:bg-zinc-800/90 hover:scale-[1.01] hover:shadow-xl hover:shadow-black/20"} transition-all duration-200 ${isDeleting ? "opacity-0 scale-95" : "opacity-100 scale-100"} ${isDragging ? "scale-105 opacity-80 shadow-xl shadow-emerald-500/20 ring-2 ring-emerald-500" : ""}`}
+      className={`w-full min-w-0 group flex items-center gap-2 sm:gap-3 bg-zinc-800/70 backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-4 shadow-lg shadow-black/10 border border-zinc-700/20 border-l-4 ${getPriorityBorder()} overflow-hidden ${isMobile ? "" : "hover:bg-zinc-800/90 hover:scale-[1.01] hover:shadow-xl hover:shadow-black/20"} transition-all duration-200 ${isDeleting ? "opacity-0 scale-95" : "opacity-100 scale-100"} ${isDragging ? "scale-105 opacity-80 shadow-xl shadow-emerald-500/20 ring-2 ring-emerald-500" : ""}`}
       draggable={!isEditing}
       onDragStart={(e) => onDragStart(e, task.id)}
       onDragOver={onDragOver}
@@ -111,12 +111,12 @@ function TaskItem({
         checked={task.completed}
         onChange={() => onToggle(task.id)}
         onClick={(e) => e.stopPropagation()}
-        className={`w-5 h-5 rounded-lg border-2 border-zinc-600 bg-zinc-700/50 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer accent-emerald-500 transition-all duration-200 ${isMobile ? "" : "hover:scale-110"}`}
+        className={`w-5 h-5 flex-shrink-0 rounded-lg border-2 border-zinc-600 bg-zinc-700/50 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer accent-emerald-500 transition-all duration-200 ${isMobile ? "" : "hover:scale-110"}`}
       />
 
       {/* В режиме редактирования: input + селектор приоритета + Save, иначе просто текст */}
       {isEditing ? (
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 min-w-0 space-y-2">
           <input
             ref={editInputRef}
             type="text"
@@ -126,7 +126,7 @@ function TaskItem({
             className="w-full bg-zinc-700/80 px-4 py-2 rounded-xl text-white ring-2 ring-emerald-500 focus:outline-none transition-all duration-200"
           />
           {/* Селектор приоритета при редактировании */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-zinc-500 text-xs">Priority:</span>
             {['low', 'medium', 'high'].map((p) => (
               <button
@@ -152,12 +152,12 @@ function TaskItem({
             </button>
           </div>
           {goals.length > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-zinc-500 text-xs">Goal:</span>
               <select
                 value={editGoalId}
                 onChange={(e) => setEditGoalId(e.target.value)}
-                className="bg-zinc-700/50 text-zinc-300 text-xs px-2 py-1 rounded-lg border border-zinc-600/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 max-w-[180px]"
+                className="bg-zinc-700/50 text-zinc-300 text-xs px-2 py-1 rounded-lg border border-zinc-600/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 min-w-0 max-w-full sm:max-w-[180px]"
               >
                 <option value="">No Goal</option>
                 {goals.map((g) => (
@@ -168,18 +168,24 @@ function TaskItem({
           )}
         </div>
       ) : (
-        <span
-          className={`flex-1 cursor-grab transition-all duration-200 ${task.completed ? "line-through text-zinc-400 opacity-60" : "text-white"}`}>
-          {task.text}
-        </span>
+        <div className="flex-1 min-w-0 cursor-grab">
+          <span className={`block min-w-0 break-words transition-all duration-200 ${task.completed ? "line-through text-zinc-400 opacity-60" : "text-white"}`}>
+            {task.text}
+          </span>
+          {(() => {
+            const goal = task.goalId ? goals.find((g) => g.id === task.goalId) : null;
+            return goal ? (
+              <span className="mt-1 inline-flex items-center gap-1 max-w-full min-w-0 bg-emerald-500/10 text-emerald-500/80 text-[10px] leading-snug font-medium px-1.5 py-0.5 rounded-md border border-emerald-500/20">
+                <Target className="w-3 h-3 flex-shrink-0" />
+                <span className="min-w-0 break-words">{goal.name}</span>
+              </span>
+            ) : null;
+          })()}
+        </div>
       )}
-      {!isEditing && task.goalId && (() => {
-        const goal = goals.find((g) => g.id === task.goalId);
-        return goal ? <span className="text-[10px] text-emerald-500/60 ml-1 flex-shrink-0"><Target className="w-3 h-3 inline mr-0.5" />{goal.name}</span> : null;
-      })()}
 
       {/* Кнопки Edit и Delete — на мобильных всегда видимы, на десктопе при hover */}
-      <div className={`flex gap-1.5 ${isMobile ? "" : "opacity-0 group-hover:opacity-100"} transition-all duration-200`}>
+      <div className={`flex flex-shrink-0 gap-1.5 ${isMobile ? "" : "opacity-0 group-hover:opacity-100"} transition-all duration-200`}>
         {!isEditing && (
           <button
             onClick={(e) => { e.stopPropagation(); startEdit(); }}
