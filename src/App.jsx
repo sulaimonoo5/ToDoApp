@@ -980,7 +980,7 @@ function App() {
             {/* Единый закреплённый Header */}
             <div className="sticky top-0 z-20 bg-black/70 backdrop-blur-md border-b border-zinc-800/50 flex-shrink-0">
               <div className="max-w-5xl mx-auto px-4 sm:px-6">
-                <div className="flex items-center gap-3 sm:gap-4 py-3">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 py-3">
                   <button
                     onClick={handleToggle}
                     className={`p-2 sm:p-3 bg-zinc-800/80 backdrop-blur-sm rounded-xl hover:scale-110 active:scale-95 transition-all duration-200 flex-shrink-0 ${sidebarOpen && isDesktop ? "opacity-0 pointer-events-none" : ""}`}
@@ -988,7 +988,7 @@ function App() {
                     <RightIcon className="w-5 h-5 text-zinc-400 hover:text-emerald-400 transition-all" />
                   </button>
 
-                  <h1 className="text-xl sm:text-2xl font-bold text-white flex-shrink-0">{getGreeting()}</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold text-white min-w-0 truncate">{getGreeting()}</h1>
 
                   <div className="ml-auto flex items-center gap-2 sm:gap-3 flex-shrink-0">
                     {/* Dropdown переключатель списков */}
