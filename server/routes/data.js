@@ -27,7 +27,7 @@ router.post("/import", authMiddleware, async (req, res) => {
     res.json({ message: "Data imported" });
   } catch (err) {
     console.error("Import error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 

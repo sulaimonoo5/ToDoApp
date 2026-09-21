@@ -100,6 +100,13 @@ function createWindow() {
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Failed to load:', errorDescription)
   })
+
+  // Запрет перехода renderer на внешние ресурсы и открытия новых окон.
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const allowed = isDev ? url.startsWith('http://localhost:5173') : url.startsWith('file://')
+    if (!allowed) event.preventDefault()
+  })
 }
 
 // ----- IPC: Notification System -----

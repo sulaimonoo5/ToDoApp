@@ -124,7 +124,7 @@ router.get("/", authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error("Sync GET error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -230,7 +230,7 @@ router.post("/", authMiddleware, async (req, res) => {
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Sync POST error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Server error" });
   } finally {
     client.release();
   }
@@ -257,7 +257,7 @@ router.get("/stats", authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error("Stats error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -517,7 +517,7 @@ router.post("/patch", authMiddleware, async (req, res) => {
     res.json({ message: "Patched", type });
   } catch (err) {
     console.error("Patch error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Server error" });
   } finally {
     client.release();
   }

@@ -3,8 +3,18 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { authMiddleware, JWT_SECRET } = require("../middleware/auth");
+const { createAttemptLimiter } = require("../middleware/rateLimit");
 
 const router = express.Router();
+
+// Защита от перебора: вход — 30 неудачных попыток / 10 мин на IP+email,
+// регистрация — 20 попыток / час на IP.
+const loginLimiter = createAttemptLimiter({ windowMs: 10 * 60 * 1000, max: 30 });
+const registerLimiter = createAttemptLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  keyFn: (req) => req.ip || "unknown",
+});
 
 function createSessionId() {
   return crypto.randomUUID();
@@ -32,11 +42,18 @@ async function recordLoginHistory(pool, userId, deviceInfo, ip) {
   );
 }
 
-router.post("/register", async (req, res) => {
+router.post("/register", registerLimiter.guard, async (req, res) => {
   try {
+    registerLimiter.record(req);
     const { name, email, password, deviceInfo } = req.body;
+    if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
+      return res.status(400).json({ error: "All fields are required" });
+    }
     if (!name || !email || !password) return res.status(400).json({ error: "All fields are required" });
+    if (name.length > 255) return res.status(400).json({ error: "Name is too long" });
+    if (email.length > 255) return res.status(400).json({ error: "Email is too long" });
     if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (password.length > 200) return res.status(400).json({ error: "Password is too long" });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Invalid email format" });
 
     const existing = await req.pool.query("SELECT id FROM users WHERE email = $1", [email]);
@@ -57,22 +74,31 @@ router.post("/register", async (req, res) => {
     res.status(201).json({ user, token, sessionId });
   } catch (err) {
     console.error("Register error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter.guard, async (req, res) => {
   try {
     const { email, password, deviceInfo } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
 
     const result = await req.pool.query("SELECT * FROM users WHERE email = $1", [email]);
-    if (result.rows.length === 0) return res.status(401).json({ error: "Invalid email or password" });
+    if (result.rows.length === 0) {
+      loginLimiter.record(req);
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
 
     const user = result.rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+    if (!valid) {
+      loginLimiter.record(req);
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
 
+    loginLimiter.reset(req);
     const token = createToken(user.id);
     const sessionId = await createSession(req.pool, user.id, deviceInfo, req.ip);
     await recordLoginHistory(req.pool, user.id, deviceInfo, req.ip);
@@ -84,7 +110,7 @@ router.post("/login", async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -95,7 +121,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     res.json({ user: result.rows[0] });
   } catch (err) {
     console.error("Me error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -108,15 +134,18 @@ router.post("/logout", authMiddleware, async (req, res) => {
     res.json({ message: "Logged out" });
   } catch (err) {
     console.error("Logout error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 router.put("/password", authMiddleware, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Both passwords are required" });
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string" || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Both passwords are required" });
+    }
     if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
+    if (newPassword.length > 200) return res.status(400).json({ error: "New password is too long" });
 
     const result = await req.pool.query("SELECT password_hash FROM users WHERE id = $1", [req.userId]);
     if (!result.rows[0]) return res.status(404).json({ error: "User not found" });
@@ -130,14 +159,14 @@ router.put("/password", authMiddleware, async (req, res) => {
     res.json({ message: "Password changed", last_password_change: new Date().toISOString() });
   } catch (err) {
     console.error("Password error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 router.delete("/account", authMiddleware, async (req, res) => {
   try {
     const { password } = req.body;
-    if (!password) return res.status(400).json({ error: "Password is required" });
+    if (typeof password !== "string" || !password) return res.status(400).json({ error: "Password is required" });
 
     const result = await req.pool.query("SELECT password_hash FROM users WHERE id = $1", [req.userId]);
     if (!result.rows[0]) return res.status(404).json({ error: "User not found" });
@@ -149,14 +178,15 @@ router.delete("/account", authMiddleware, async (req, res) => {
     res.json({ message: "Account deleted" });
   } catch (err) {
     console.error("Delete error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 router.put("/profile", authMiddleware, async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name || !name.trim()) return res.status(400).json({ error: "Name is required" });
+    if (typeof name !== "string" || !name.trim()) return res.status(400).json({ error: "Name is required" });
+    if (name.length > 255) return res.status(400).json({ error: "Name is too long" });
 
     const result = await req.pool.query(
       "UPDATE users SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING id, name, email, created_at, last_password_change",
@@ -167,7 +197,7 @@ router.put("/profile", authMiddleware, async (req, res) => {
     res.json({ user: result.rows[0] });
   } catch (err) {
     console.error("Profile error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -192,7 +222,7 @@ router.get("/sessions", authMiddleware, async (req, res) => {
     res.json({ sessions });
   } catch (err) {
     console.error("Sessions error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -202,7 +232,7 @@ router.delete("/sessions/:sessionId", authMiddleware, async (req, res) => {
     res.json({ message: "Session ended" });
   } catch (err) {
     console.error("Delete session error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -217,13 +247,15 @@ router.post("/sessions/logout-all", authMiddleware, async (req, res) => {
     res.json({ message: "All other sessions ended" });
   } catch (err) {
     console.error("Logout all error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 router.get("/login-history", authMiddleware, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
+    let limit = parseInt(req.query.limit, 10);
+    if (!Number.isFinite(limit) || limit <= 0) limit = 50;
+    if (limit > 200) limit = 200;
     const result = await req.pool.query(
       "SELECT device_type, browser, os, ip, location, created_at FROM login_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2",
       [req.userId, limit]
@@ -239,7 +271,7 @@ router.get("/login-history", authMiddleware, async (req, res) => {
     res.json({ history });
   } catch (err) {
     console.error("Login history error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -253,7 +285,7 @@ router.get("/security", authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error("Security error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 

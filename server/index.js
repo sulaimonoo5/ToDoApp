@@ -5,6 +5,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const { Pool } = require("pg");
 const jwt = require("jsonwebtoken");
+const { JWT_SECRET } = require("./middleware/auth");
 const authRoutes = require("./routes/auth");
 const dataRoutes = require("./routes/data");
 const syncRoutes = require("./routes/sync");
@@ -164,7 +165,32 @@ async function initDB() {
   }
 }
 
-app.use(cors({ origin: true, credentials: true }));
+app.set("trust proxy", 1);
+
+// Разрешённые origin: same-origin (production web), локальная разработка,
+// Electron (file:// / null) и явный список из ALLOWED_ORIGINS.
+const EXTRA_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function isOriginAllowed(origin, selfHost) {
+  if (!origin) return true; // не браузерный запрос / same-origin без заголовка
+  if (origin === "null" || origin.startsWith("file://")) return true; // Electron
+  let host;
+  try { host = new URL(origin).host; } catch { return false; }
+  if (selfHost && host === selfHost) return true; // same-origin (production)
+  if (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host)) return true; // dev
+  if (EXTRA_ORIGINS.includes(origin)) return true; // задаётся через окружение
+  return false;
+}
+
+app.use(cors((req, cb) => {
+  cb(null, {
+    origin: (origin, done) => done(null, isOriginAllowed(origin, req.headers.host)),
+    credentials: true,
+  });
+}));
 app.use(express.json({ limit: "50mb" }));
 
 app.use((req, res, next) => {
@@ -172,11 +198,13 @@ app.use((req, res, next) => {
   next();
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || "todo-app-jwt-secret-dev";
-
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: true, credentials: true },
+  cors: {
+    origin: (origin, cb) => cb(null, isOriginAllowed(origin, null)),
+    credentials: true,
+  },
+  allowRequest: (req, cb) => cb(null, isOriginAllowed(req.headers.origin, req.headers.host)),
   pingInterval: 10000,
   pingTimeout: 5000,
 });
@@ -211,7 +239,7 @@ app.get("/api/health", async (req, res) => {
     await pool.query("SELECT 1");
     res.json({ status: "ok", database: "connected" });
   } catch (err) {
-    res.status(503).json({ status: "error", database: "disconnected", error: err.message });
+    res.status(503).json({ status: "error", database: "disconnected" });
   }
 });
 
