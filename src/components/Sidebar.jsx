@@ -6,12 +6,28 @@
 
 import React from "react";
 import LeftIcon from "../icons/LeftIcon";
-import { House, ClipboardList, BookOpen, Target, UserRound } from "lucide-react";
+import {
+  House,
+  ClipboardList,
+  BookOpen,
+  Target,
+  Calendar,
+  NotebookPen,
+  Settings,
+  UserRound,
+} from "lucide-react";
 
 function Sidebar({ isOpen, onClose, currentPage, onPageChange }) {
   const NAV_ICONS = {
-    Home: House, Tasks: ClipboardList, Schedule: BookOpen, Goals: Target, Account: UserRound,
+    Home: House,
+    Tasks: ClipboardList,
+    Schedule: BookOpen,
+    Goals: Target,
+    Calendar: Calendar,
+    Notes: NotebookPen,
   };
+
+  const COMING_SOON = ["calendar", "notes"];
 
   // Обработчик клика: переключает страницу и закрывает sidebar на мобильных
   const handleClick = (page) => {
@@ -49,9 +65,24 @@ function Sidebar({ isOpen, onClose, currentPage, onPageChange }) {
 
           {/* Список навигации */}
           <nav className="flex-1 space-y-2">
-            {["Home","Tasks","Schedule","Goals","Account"].map((name) => {
+            {["Home","Tasks","Schedule","Goals","Calendar","Notes"].map((name) => {
               const Icon = NAV_ICONS[name];
               const page = name.toLowerCase();
+              const isComingSoon = COMING_SOON.includes(page);
+
+              if (isComingSoon) {
+                return (
+                  <div
+                    key={page}
+                    title="Coming Soon"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-600 cursor-not-allowed select-none"
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-medium">{name}</span>
+                  </div>
+                );
+              }
+
               return (
                 <button
                   key={page}
@@ -69,9 +100,29 @@ function Sidebar({ isOpen, onClose, currentPage, onPageChange }) {
             })}
           </nav>
 
-          {/* Нижняя часть: версия приложения */}
+          {/* Нижняя часть: настройки + аккаунт (иконки) и версия приложения */}
           <div className="pt-6 border-t border-zinc-800">
-            <p className="text-xs text-zinc-600">All-in-One App v1.0</p>
+            <div className="flex items-center gap-2">
+              <div
+                title="Coming Soon"
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-600 cursor-not-allowed select-none"
+              >
+                <Settings className="w-5 h-5 flex-shrink-0" />
+              </div>
+              <button
+                onClick={() => handleClick("account")}
+                title="Account"
+                aria-label="Account"
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                  currentPage === "account"
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "text-zinc-400 hover:bg-zinc-800 hover:text-white hover:scale-105 active:scale-95"
+                }`}
+              >
+                <UserRound className="w-5 h-5 flex-shrink-0" />
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-zinc-600">All-in-One App v1.0</p>
           </div>
         </div>
       </aside>
