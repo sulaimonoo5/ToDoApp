@@ -155,6 +155,19 @@ function Home({
     }
   }
 
+  // Количество посещённых уроков (отмеченных как attended) во всём расписании
+  const attendedLessons = Object.values(scheduleData).reduce(
+    (sum, day) =>
+      sum +
+      (day
+        ? Object.values(day).reduce(
+            (s, lesson) => (lesson && lesson.attended ? s + 1 : s),
+            0,
+          )
+        : 0),
+    0,
+  );
+
   const formatTimeUntil = () => {
     if (!nextLesson || nextLessonStatus === "inProgress") return null;
     const start = parseTime(nextLesson.startTime);
@@ -326,7 +339,7 @@ function Home({
                 <p className="text-xs text-zinc-500">Tasks Completed</p>
               </div>
               <div>
-                <p className="text-xl font-bold text-white">—</p>
+                <p className="text-xl font-bold text-white">{attendedLessons}</p>
                 <p className="text-xs text-zinc-500">Lessons Attended</p>
               </div>
               <div>

@@ -492,6 +492,26 @@ function App() {
               } catch {}
               break;
             }
+            case "lesson:move": {
+              try {
+                const stored = localStorage.getItem("scheduleData");
+                const schedule = stored ? JSON.parse(stored) : {};
+                const { from, to, lesson } = payload;
+                if (!from || !to || !lesson) break;
+                if (from.day === to.day && from.lesson === to.lesson) break;
+                const srcData = schedule[from.day]?.[from.lesson];
+                const dstData = schedule[to.day]?.[to.lesson];
+                if (dstData) {
+                  schedule[from.day] = { ...(schedule[from.day] || {}), [from.lesson]: { ...dstData, day: from.day, lesson: from.lesson } };
+                } else if (srcData) {
+                  delete schedule[from.day][from.lesson];
+                  if (Object.keys(schedule[from.day]).length === 0) delete schedule[from.day];
+                }
+                schedule[to.day] = { ...(schedule[to.day] || {}), [to.lesson]: { ...lesson, day: to.day, lesson: to.lesson } };
+                localStorage.setItem("scheduleData", JSON.stringify(schedule));
+              } catch {}
+              break;
+            }
             case "lesson:delete": {
               try {
                 const stored = localStorage.getItem("scheduleData");
@@ -627,8 +647,22 @@ function App() {
     if (newName && user) api.patch("list:rename", { listId: editingListId, name: newName }).catch(() => {});
   };
 
-  // Удалить список
+  // Удалить список (с подтверждением, если в нём есть задачи)
   const deleteList = (listId) => {
+    const list = lists.find((l) => l.id === listId);
+    if (list && list.tasks.length > 0) {
+      const taskCount = list.tasks.length;
+      showConfirm(
+        "Delete List",
+        `Deleting "${list.name}" will also delete ${taskCount} task${taskCount !== 1 ? "s" : ""}. This action cannot be undone.`,
+        () => doDeleteList(listId),
+      );
+    } else {
+      doDeleteList(listId);
+    }
+  };
+
+  const doDeleteList = (listId) => {
     const newLists = lists.filter((l) => l.id !== listId);
 
     if (newLists.length === 0) {
@@ -856,24 +890,34 @@ function App() {
     if (user) api.patch("task:update", { task: { id, text: newText, priority: newPriority, goalId: newGoalId || null } }).catch(() => {});
   };
 
-  // Переместить задачу (для drag & drop)
-  const reorderTasks = (fromIndex, toIndex) => {
+  // Переместить задачу (для drag & drop) — по id, чтобы работало при поиске/фильтре
+  const reorderTasks = (dragId, targetId) => {
+    if (!dragId || !targetId || dragId === targetId) return;
     setLists(
       lists.map((list) => {
         if (list.id !== currentListId) return list;
+        const fromIndex = list.tasks.findIndex((t) => t.id === dragId);
+        const toIndex = list.tasks.findIndex((t) => t.id === targetId);
+        if (fromIndex === -1 || toIndex === -1) return list;
         const newTasks = [...list.tasks];
         const [moved] = newTasks.splice(fromIndex, 1);
-        newTasks.splice(toIndex, 0, moved);
+        const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+        newTasks.splice(insertAt, 0, moved);
         return { ...list, tasks: newTasks };
       }),
     );
     if (user) {
       const currentList = lists.find((l) => l.id === currentListId);
       if (currentList) {
-        const newTasks = [...currentList.tasks];
-        const [moved] = newTasks.splice(fromIndex, 1);
-        newTasks.splice(toIndex, 0, moved);
-        api.patch("task:reorder", { listId: currentListId, tasks: newTasks }).catch(() => {});
+        const fromIndex = currentList.tasks.findIndex((t) => t.id === dragId);
+        const toIndex = currentList.tasks.findIndex((t) => t.id === targetId);
+        if (fromIndex !== -1 && toIndex !== -1) {
+          const newTasks = [...currentList.tasks];
+          const [moved] = newTasks.splice(fromIndex, 1);
+          const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+          newTasks.splice(insertAt, 0, moved);
+          api.patch("task:reorder", { listId: currentListId, tasks: newTasks }).catch(() => {});
+        }
       }
     }
   };
@@ -1198,10 +1242,10 @@ function App() {
                         <p className={`text-sm truncate ${checked ? "text-white" : "text-zinc-300"}`}>{item.text}</p>
                         <p className="text-zinc-500 text-xs mt-0.5">From: {listName} &middot; {daysLeft} days left</p>
                       </div>
-                      <button onClick={() => { restoreTask(item); api.patch("task:restore", { item, targetListId: item.listId }).catch(() => {}); notify("Task restored"); }} className="px-2.5 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-lg hover:bg-emerald-500/30 transition-all flex-shrink-0" title="Restore">
+                      <button onClick={() => restoreTask(item)} className="px-2.5 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-lg hover:bg-emerald-500/30 transition-all flex-shrink-0" title="Restore">
                         <RotateCcw className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => { permanentlyDeleteTask(item.id); api.patch("task:delete-permanent", { taskId: item.id }).catch(() => {}); notify("Task permanently deleted"); }} className="px-2.5 py-1.5 bg-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/30 transition-all flex-shrink-0" title="Delete forever">
+                      <button onClick={() => permanentlyDeleteTask(item.id)} className="px-2.5 py-1.5 bg-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/30 transition-all flex-shrink-0" title="Delete forever">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>

@@ -18,7 +18,7 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LESSONS = Array.from({ length: 12 }, (_, i) => i + 1);
 const TRASH_DAYS = 30;
 const SCHEDULE_KEY = "scheduleData";
-const LESSON_TRASH_KEY = "lessonTrash";
+const LESSON_TRASH_KEY = "scheduleTrash";
 
 const COLORS = ["emerald", "blue", "amber", "purple", "red", "pink", "cyan", "orange"];
 const COLOR_MAP = {
@@ -46,8 +46,39 @@ const DEFAULT_FORM = {
   startTime: "08:00", endTime: "08:45", reminder: "none",
 };
 
+const isTrashExpired = (deletedAt) => {
+  const now = Date.now();
+  const daysDiff = (now - deletedAt) / (1000 * 60 * 60 * 24);
+  return daysDiff > TRASH_DAYS;
+};
+
+function loadSchedule() {
+  try {
+    const saved = localStorage.getItem(SCHEDULE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+function loadLessonTrash() {
+  try {
+    const saved = localStorage.getItem(LESSON_TRASH_KEY);
+    if (saved) return JSON.parse(saved).filter((t) => !isTrashExpired(t.deletedAt));
+    const legacy = localStorage.getItem("lessonTrash");
+    if (legacy) {
+      const valid = JSON.parse(legacy).filter((t) => !isTrashExpired(t.deletedAt));
+      localStorage.removeItem("lessonTrash");
+      return valid;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 function Schedule({ onToggleSidebar, sidebarOpen }) {
-  const [data, setData] = useState({});
+  const [data, setData] = useState(loadSchedule);
   const [selectedCell, setSelectedCell] = useState(null);
   const [form, setForm] = useState({ ...DEFAULT_FORM });
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,7 +95,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   const [now, setNow] = useState(() => new Date());
 
   // Trash + Undo для уроков
-  const [lessonTrash, setLessonTrash] = useState([]);
+  const [lessonTrash, setLessonTrash] = useState(loadLessonTrash);
   const [isLessonTrashOpen, setIsLessonTrashOpen] = useState(false);
   const [recentlyDeletedLesson, setRecentlyDeletedLesson] = useState(null);
   const lessonUndoTimeoutRef = useRef(null);
@@ -72,22 +103,8 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
   const [selectedLessonTrash, setSelectedLessonTrash] = useState(new Set());
   const [lessonConfirmDialog, setLessonConfirmDialog] = useState({ open: false, title: "", message: "", onConfirm: null, variant: "danger" });
 
-  // ------ localStorage: загрузка scheduleData и lessonTrash при старте ------
+  // ------ разрешить сохранение после монтирования (начальное состояние уже загружено) ------
   useEffect(() => {
-    try {
-      const savedSchedule = localStorage.getItem(SCHEDULE_KEY);
-      if (savedSchedule) setData(JSON.parse(savedSchedule));
-    } catch {}
-
-    try {
-      const savedTrash = localStorage.getItem(LESSON_TRASH_KEY);
-      if (savedTrash) {
-        const parsed = JSON.parse(savedTrash);
-        const valid = parsed.filter((t) => !isTrashExpired(t.deletedAt));
-        setLessonTrash(valid);
-      }
-    } catch {}
-
     isLoadingRef.current = false;
   }, []);
 
@@ -111,12 +128,6 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     return () => clearInterval(timer);
   }, []);
 
-  const isTrashExpired = (deletedAt) => {
-    const now = Date.now();
-    const daysDiff = (now - deletedAt) / (1000 * 60 * 60 * 24);
-    return daysDiff > TRASH_DAYS;
-  };
-
   // Socket listeners for real-time sync
   useEffect(() => {
     const s = getSocket();
@@ -132,6 +143,28 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
             const next = { ...prev };
             if (!next[day]) next[day] = {};
             next[day] = { ...next[day], [lesson]: payload.lesson };
+            return next;
+          });
+          break;
+        }
+        case "lesson:move": {
+          const { from, to, lesson } = payload;
+          if (!from || !to || !lesson) break;
+          if (from.day === to.day && from.lesson === to.lesson) break;
+          setData((prev) => {
+            const next = JSON.parse(JSON.stringify(prev));
+            const srcData = next[from.day]?.[from.lesson];
+            if (!srcData) return prev;
+            const dstData = next[to.day]?.[to.lesson];
+            if (dstData) {
+              next[from.day] = { ...(next[from.day] || {}), [from.lesson]: { ...dstData, day: from.day, lesson: from.lesson } };
+            } else {
+              delete next[from.day][from.lesson];
+              if (next[from.day] && Object.keys(next[from.day]).length === 0) {
+                delete next[from.day];
+              }
+            }
+            next[to.day] = { ...(next[to.day] || {}), [to.lesson]: { ...lesson, day: to.day, lesson: to.lesson } };
             return next;
           });
           break;
@@ -491,6 +524,7 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
     if (newAttended) {
       updateStreak(new Date());
     }
+    api.patch("lesson:update", { lesson: { ...lessonData, day, lesson, attended: newAttended } }).catch(() => {});
   };
 
   const restoreLesson = (trashItem) => {
@@ -551,22 +585,33 @@ function Schedule({ onToggleSidebar, sidebarOpen }) {
       setDragTarget(null);
       return;
     }
+    const sourceData = data[srcDay]?.[srcLesson];
+    if (!sourceData) return;
+
     setData((prev) => {
       const newData = JSON.parse(JSON.stringify(prev));
-      const sourceData = newData[srcDay]?.[srcLesson];
-      if (!sourceData) return prev;
-      delete newData[srcDay][srcLesson];
-      if (newData[srcDay] && Object.keys(newData[srcDay]).length === 0) {
-        delete newData[srcDay];
+      const source = newData[srcDay]?.[srcLesson];
+      if (!source) return prev;
+      const occupied = newData[targetDay]?.[targetLesson];
+      if (occupied) {
+        newData[srcDay] = { ...(newData[srcDay] || {}), [srcLesson]: { ...occupied, day: srcDay, lesson: srcLesson } };
+      } else {
+        delete newData[srcDay][srcLesson];
+        if (newData[srcDay] && Object.keys(newData[srcDay]).length === 0) {
+          delete newData[srcDay];
+        }
       }
-      newData[targetDay] = {
-        ...(newData[targetDay] || {}),
-        [targetLesson]: sourceData,
-      };
+      newData[targetDay] = { ...(newData[targetDay] || {}), [targetLesson]: { ...source, day: targetDay, lesson: targetLesson } };
       return newData;
     });
     setDragSource(null);
     setDragTarget(null);
+
+    api.patch("lesson:move", {
+      from: { day: srcDay, lesson: srcLesson },
+      to: { day: targetDay, lesson: targetLesson },
+      lesson: { ...sourceData, day: targetDay, lesson: targetLesson },
+    }).catch(() => {});
   };
 
   const toggleSelectLessonTrash = (id) => {

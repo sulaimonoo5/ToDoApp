@@ -390,6 +390,47 @@ router.post("/patch", authMiddleware, async (req, res) => {
         );
         break;
       }
+      case "lesson:move": {
+        const { from, to, lesson } = payload;
+        if (
+          !from || !to || !lesson ||
+          from.day === undefined || from.lesson === undefined ||
+          to.day === undefined || to.lesson === undefined
+        ) {
+          return res.status(400).json({ error: "Invalid lesson:move payload" });
+        }
+        if (from.day === to.day && from.lesson === to.lesson) break;
+
+        const existing = await pool.query(
+          "SELECT * FROM schedule_entries WHERE user_id = $1 AND day = $2 AND lesson = $3",
+          [userId, to.day, to.lesson]
+        );
+
+        await pool.query(
+          "DELETE FROM schedule_entries WHERE user_id = $1 AND day = $2 AND lesson = $3",
+          [userId, from.day, from.lesson]
+        );
+
+        if (existing.rows.length > 0) {
+          const o = existing.rows[0];
+          await pool.query(
+            `INSERT INTO schedule_entries (user_id, day, lesson, name, start_time, end_time, room, teacher, color, attended, reminder, notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             ON CONFLICT (user_id, day, lesson)
+             DO UPDATE SET name = $4, start_time = $5, end_time = $6, room = $7, teacher = $8, color = $9, attended = $10, reminder = $11, notes = $12`,
+            [userId, from.day, from.lesson, o.name, o.start_time, o.end_time, o.room, o.teacher, o.color, o.attended, o.reminder, o.notes]
+          );
+        }
+
+        await pool.query(
+          `INSERT INTO schedule_entries (user_id, day, lesson, name, start_time, end_time, room, teacher, color, attended, reminder, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           ON CONFLICT (user_id, day, lesson)
+           DO UPDATE SET name = $4, start_time = $5, end_time = $6, room = $7, teacher = $8, color = $9, attended = $10, reminder = $11, notes = $12`,
+          [userId, to.day, to.lesson, lesson.name || "", lesson.startTime || "", lesson.endTime || "", lesson.room || "", lesson.teacher || "", lesson.color || "emerald", lesson.attended || false, lesson.reminder || "none", lesson.notes || ""]
+        );
+        break;
+      }
       case "lesson:delete": {
         const ld = payload.lesson;
         await pool.query("DELETE FROM schedule_entries WHERE user_id = $1 AND day = $2 AND lesson = $3",

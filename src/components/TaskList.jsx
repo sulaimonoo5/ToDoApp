@@ -63,19 +63,9 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile, goal
       return
     }
 
-    // Находим индексы в отсортированном массиве (визуальный порядок)
-    const fromIndex = sortedTasks.findIndex(t => t.id === draggingId)
-    const toIndex = sortedTasks.findIndex(t => t.id === targetId)
-
-    if (fromIndex !== -1 && toIndex !== -1) {
-      // Пересчитываем в индексы оригинального массива (реальный порядок в state)
-      const originalTasks = [...tasks]
-      const fromOriginalIndex = originalTasks.findIndex(t => t.id === draggingId)
-      const toOriginalIndex = originalTasks.findIndex(t => t.id === targetId)
-      
-      // Передаём в App для обновления state
-      onReorder(fromOriginalIndex, toOriginalIndex)
-    }
+    // Передаём id перетаскиваемой задачи и задачи-цели в App,
+    // который корректно переупорядочивает полный (не отфильтрованный) массив
+    onReorder(draggingId, targetId)
 
     // Сброс состояний drag & drop
     setDraggingId(null)
