@@ -174,7 +174,7 @@ function TaskItem({
           </span>
           {(() => {
             const goal = task.goalId ? goals.find((g) => g.id === task.goalId) : null;
-            return goal ? (
+            return goal && task.completed ? (
               <span className="mt-1 inline-flex items-center gap-1 max-w-full min-w-0 bg-emerald-500/10 text-emerald-500/80 text-[10px] leading-snug font-medium px-1.5 py-0.5 rounded-md border border-emerald-500/20">
                 <Target className="w-3 h-3 flex-shrink-0" />
                 <span className="min-w-0 break-words">{goal.name}</span>

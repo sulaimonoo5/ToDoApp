@@ -3,10 +3,49 @@
 // Разделяет невыполненные и выполненные визуальным разделителем "Completed"
 // Drag & drop синхронизирует индексы между отсортированным и оригинальным массивом
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, Fragment } from 'react'
 import TaskItem from './TaskItem'
+import { Target, Inbox } from 'lucide-react'
 
 function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile, goals = [] }) {
+
+  // Визуальный разделитель группы по Goal: [Target] GOAL NAME по центру линии
+  const GoalDivider = ({ name, hasGoal }) => (
+    <div className="flex items-center gap-2 sm:gap-3 py-3 min-w-0 select-none">
+      <div className="flex-1 h-px min-w-0 bg-emerald-500/40" />
+      <div className="flex items-center gap-1.5 min-w-0">
+        {hasGoal ? (
+          <Target className="w-3.5 h-3.5 text-emerald-500/80 flex-shrink-0" />
+        ) : (
+          <Inbox className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+        )}
+        <span title={name} className={`text-xs uppercase tracking-wider truncate ${hasGoal ? "text-emerald-300/90" : "text-zinc-400"}`}>{name}</span>
+      </div>
+      <div className="flex-1 h-px min-w-0 bg-emerald-500/40" />
+    </div>
+  )
+
+  // Группировка активных задач по Goal (только presentation, порядок групп = порядок в списке Goals, No Goal — в конце)
+  const buildGoalGroups = (taskList) => {
+    const goalMap = new Map((goals || []).map((g) => [g.id, g]))
+    const groups = []
+    const byGoal = new Map()
+    const noGoalTasks = []
+    for (const task of taskList) {
+      const goal = task.goalId ? goalMap.get(task.goalId) : null
+      if (goal) {
+        if (!byGoal.has(goal.id)) byGoal.set(goal.id, [])
+        byGoal.get(goal.id).push(task)
+      } else {
+        noGoalTasks.push(task)
+      }
+    }
+    for (const g of goals || []) {
+      if (byGoal.has(g.id)) groups.push({ goal: g, tasks: byGoal.get(g.id) })
+    }
+    if (noGoalTasks.length > 0) groups.push({ goal: null, tasks: noGoalTasks })
+    return groups
+  }
   // ID перетаскиваемого элемента (для стилизации)
   const [draggingId, setDraggingId] = useState(null)
   // ID элемента-цели (для отображения индикатора сброса)
@@ -87,29 +126,34 @@ function TaskList({ tasks, onDelete, onToggle, onReorder, onEdit, isMobile, goal
         </div>
       ) : (
         <>
-          {/* Секция невыполненных задач */}
-          {incompleteTasks.map((task) => (
-            <div key={task.id} className="animate-fade-in">
-              {/* Индикатор сброса (зелёная полоска) */}
-              {draggingId && dropTargetId === task.id && (
-                <div className="h-1 bg-emerald-500 rounded-full mb-2 shadow-lg shadow-emerald-500/50" />
-              )}
-              <TaskItem
-                task={task}
-                onDelete={onDelete}
-                onToggle={onToggle}
-                onEdit={onEdit}
-                isDragging={draggingId === task.id}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                isMobile={isMobile}
-                goals={goals}
-              />
-            </div>
+          {/* Секция активных задач, сгруппированных по Goal */}
+          {buildGoalGroups(incompleteTasks).map(({ goal, tasks: groupTasks }) => (
+            <Fragment key={goal ? goal.id : "__no_goal__"}>
+              <GoalDivider name={goal ? goal.name : "No Goal"} hasGoal={!!goal} />
+              {groupTasks.map((task) => (
+                <div key={task.id} className="animate-fade-in">
+                  {/* Индикатор сброса (зелёная полоска) */}
+                  {draggingId && dropTargetId === task.id && (
+                    <div className="h-1 bg-emerald-500 rounded-full mb-2 shadow-lg shadow-emerald-500/50" />
+                  )}
+                  <TaskItem
+                    task={task}
+                    onDelete={onDelete}
+                    onToggle={onToggle}
+                    onEdit={onEdit}
+                    isDragging={draggingId === task.id}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    isMobile={isMobile}
+                    goals={goals}
+                  />
+                </div>
+              ))}
+            </Fragment>
           ))}
 
-          {/* Разделитель между невыполненными и выполненными задачами */}
+          {/* Разделитель между активными и выполненными задачами */}
           {incompleteTasks.length > 0 && completedTasks.length > 0 && (
             <div className="flex items-center gap-3 py-3">
               <div className="flex-1 h-px bg-zinc-800" />
