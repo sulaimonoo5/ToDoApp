@@ -21,6 +21,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
+      devOptions: {
+        enabled: true,
+      },
       manifest: {
         name: "To-Do App",
         short_name: "ToDo",
@@ -41,6 +47,12 @@ export default defineConfig({
             src: "/icon-512.png",
             sizes: "512x512",
             type: "image/png",
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
           },
         ],
         screenshots: [

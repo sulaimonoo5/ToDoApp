@@ -9,6 +9,8 @@ const { JWT_SECRET } = require("./middleware/auth");
 const authRoutes = require("./routes/auth");
 const dataRoutes = require("./routes/data");
 const syncRoutes = require("./routes/sync");
+const pushRoutes = require("./routes/push");
+const { runReminderScan, startScheduler } = require("./reminderScheduler");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -156,6 +158,26 @@ async function initDB() {
         deleted_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(user_id, day, lesson)
       );
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        endpoint TEXT UNIQUE NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        device_label VARCHAR(200) DEFAULT 'Unknown device',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS push_notifications_log (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        day INTEGER NOT NULL,
+        lesson INTEGER NOT NULL,
+        reminder VARCHAR(20) DEFAULT 'none',
+        date VARCHAR(20) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, day, lesson, date)
+      );
     `);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_password_change TIMESTAMP DEFAULT NOW()`);
     console.log("Database tables ready");
@@ -233,6 +255,24 @@ app.set("JWT_SECRET", JWT_SECRET);
 app.use("/api/auth", authRoutes);
 app.use("/api/data", dataRoutes);
 app.use("/api/sync", syncRoutes);
+app.use("/api/push", pushRoutes);
+
+// Dev-only: manual reminder scan trigger (tests must not wait 30 min).
+// Never mounted in production.
+if (process.env.NODE_ENV !== "production") {
+  app.post("/api/dev/fire-reminders", async (req, res) => {
+    try {
+      const now = typeof req.body?.now === "number"
+        ? new Date(req.body.now)
+        : new Date();
+      const result = await runReminderScan(req.pool, now);
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      console.error("Dev fire-reminders error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+}
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -254,4 +294,8 @@ initDB().then(() => {
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+  const scanInterval = parseInt(process.env.REMINDER_SCAN_INTERVAL_MS || "30000", 10);
+  if (Number.isFinite(scanInterval) && scanInterval > 0) {
+    startScheduler(pool, scanInterval);
+  }
 });

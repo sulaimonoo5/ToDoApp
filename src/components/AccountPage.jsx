@@ -129,6 +129,60 @@ function AccountPage({ onBack }) {
   const [signOutAllConfirm, setSignOutAllConfirm] = useState(false);
   const [signOutAllSubmitting, setSignOutAllSubmitting] = useState(false);
 
+  // ---- Notifications permission (controlled; never auto-requested) ----
+  const [notifPerm, setNotifPerm] = useState(() => {
+    try {
+      if (typeof Notification === "undefined") return "unsupported";
+      return Notification.permission;
+    } catch {
+      return "unsupported";
+    }
+  });
+  const [notifPending, setNotifPending] = useState(false);
+  const isIOSStandalone = (() => {
+    try {
+      const ua = navigator.userAgent || "";
+      return /iPhone|iPad|iPod/i.test(ua) && (window.navigator.standalone === true || window.matchMedia?.("(display-mode: standalone)")?.matches);
+    } catch {
+      return false;
+    }
+  })();
+  const isAndroidStandalone = (() => {
+    try {
+      return /Android/i.test(navigator.userAgent || "") && window.matchMedia?.("(display-mode: standalone)")?.matches;
+    } catch {
+      return false;
+    }
+  })();
+
+  const handleEnableNotifications = async () => {
+    setNotifPending(true);
+    try {
+      const { requestPermission } = await import("../services/notificationService");
+      const result = await requestPermission();
+      setNotifPerm(result);
+    } catch {
+      // ignore
+    } finally {
+      setNotifPending(false);
+    }
+  };
+
+  const refreshNotifPerm = () => {
+    try {
+      if (typeof Notification === "undefined") return setNotifPerm("unsupported");
+      setNotifPerm(Notification.permission);
+    } catch {
+      setNotifPerm("unsupported");
+    }
+  };
+
+  useEffect(() => {
+    const onFocus = () => refreshNotifPerm();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -471,8 +525,40 @@ function AccountPage({ onBack }) {
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-white text-sm font-medium">Notifications</p>
-                <p className="text-zinc-500 text-xs">Enabled</p>
+                {notifPerm === "granted" ? (
+                  <p className="text-zinc-500 text-xs">Enabled</p>
+                ) : notifPerm === "denied" ? (
+                  <p className="text-zinc-500 text-xs">Blocked in browser settings</p>
+                ) : notifPerm === "default" ? (
+                  <button
+                    onClick={handleEnableNotifications}
+                    disabled={notifPending}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {notifPending ? "Requesting..." : "Enable"}
+                  </button>
+                ) : (
+                  <p className="text-zinc-500 text-xs">Unavailable on this device</p>
+                )}
               </div>
+              {(notifPerm === "default" || notifPerm === "granted") && isIOSStandalone && (
+                <p className="text-zinc-600 text-xs leading-relaxed">
+                  To enable: install this app to your Home Screen, then tap Enable above.
+                  While it runs you will also see in-app lesson reminders.
+                </p>
+              )}
+              {notifPerm === "denied" && (
+                <p className="text-zinc-600 text-xs leading-relaxed">
+                  Notifications are blocked in this browser. Allow them via your device/browser
+                  notification settings, then refresh this page.
+                </p>
+              )}
+              {notifPerm === "granted" && !isIOSStandalone && !isAndroidStandalone && (
+                <p className="text-zinc-600 text-xs leading-relaxed">
+                  Enabled. Installing on Android after allowing turns this into sound/vibration
+                  reminders that also arrive when the app is closed.
+                </p>
+              )}
               <div className="flex items-center justify-between">
                 <p className="text-white text-sm font-medium">Language</p>
                 <p className="text-zinc-500 text-xs">English</p>

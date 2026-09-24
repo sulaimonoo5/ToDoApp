@@ -46,6 +46,11 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
+    // Отвязать web-push подписку этого устройства, пока токен ещё валиден.
+    try {
+      const { unsubscribePush } = await import("../services/notificationService");
+      await unsubscribePush();
+    } catch {}
     try { await api.logout(); } catch {}
     localStorage.removeItem("access_token");
     localStorage.removeItem("session_id");

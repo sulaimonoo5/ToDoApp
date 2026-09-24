@@ -119,8 +119,16 @@ function App() {
   // Состояние sidebar (открыт/закрыт)
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Текущая страница: "home" | "tasks" | "schedule"
-  // Всегда стартует с Home при новом запуске, внутри сессии сохраняет последнюю выбранную страницу
-  const [currentPage, setCurrentPage] = useState("home");
+  // Всегда стартует с Home при новом запуске, внутри сессии сохраняет последнюю выбранную страницу.
+  // Открытие по "внешней" ссылке (url fragment) из notificationclick заходит сразу в Study Schedule.
+  const [currentPage, setCurrentPage] = useState(() => {
+    try {
+      if (window.location.hash === "#/schedule") return "schedule";
+    } catch {
+      // ignore
+    }
+    return "home";
+  });
   // Флаг: идёт ли загрузка из localStorage
   const isLoadingRef = useRef(true);
   // Часы для единого Header
@@ -388,6 +396,38 @@ function App() {
   useEffect(() => {
     notificationService.start();
     return () => notificationService.stop();
+  }, []);
+
+  // Push-сессия: при входе/восстановлении сессии синхронизируем подписку
+  // (если разрешение уже выдано). Выход развязывает подписку в AuthContext.
+  useEffect(() => {
+    if (user) {
+      notificationService.syncSession();
+    }
+  }, [user]);
+
+  // Service Worker: переход в Study Schedule по клику на уведомление
+  // и повторная подписка после pushsubscriptionchange.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return undefined;
+    const onMessage = (event) => {
+      const data = event.data || {};
+      if (data.type === "NOTIFICATION_NAVIGATE" && data.page === "schedule") {
+        setCurrentPage("schedule");
+      } else if (data.type === "NOTIFICATION_RESUBSCRIBE") {
+        notificationService.syncSession();
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, []);
+
+  // Открытие через fragment #/schedule (холодный старт из notificationclick):
+  // считываем один раз и очищаем, чтобы reload не переоткрывал Schedule.
+  useEffect(() => {
+    if (window.location.hash === "#/schedule" && history.replaceState) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
   }, []);
 
   // Таймер обновления часов в Header

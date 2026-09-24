@@ -87,3 +87,17 @@ export async function patch(type, payload) {
     body: JSON.stringify({ type, payload }),
   });
 }
+
+export function pushSubscribe({ endpoint, keys, deviceLabel }) {
+  return request("/api/push/subscribe", {
+    method: "POST",
+    body: JSON.stringify({ endpoint, keys, deviceLabel }),
+  });
+}
+
+export function pushUnsubscribe({ endpoint }) {
+  return request("/api/push/subscribe", {
+    method: "DELETE",
+    body: JSON.stringify({ endpoint }),
+  });
+}
