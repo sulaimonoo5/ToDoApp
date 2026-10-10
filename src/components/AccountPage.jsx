@@ -129,16 +129,10 @@ function AccountPage({ onBack }) {
   const [signOutAllConfirm, setSignOutAllConfirm] = useState(false);
   const [signOutAllSubmitting, setSignOutAllSubmitting] = useState(false);
 
-  // ---- Notifications permission (controlled; never auto-requested) ----
-  const [notifPerm, setNotifPerm] = useState(() => {
-    try {
-      if (typeof Notification === "undefined") return "unsupported";
-      return Notification.permission;
-    } catch {
-      return "unsupported";
-    }
-  });
-  const [notifPending, setNotifPending] = useState(false);
+  // ---- Notifications (controlled; never auto-requested) ----
+  const [notifStatus, setNotifStatus] = useState(null);
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [notifMsg, setNotifMsg] = useState("");
   const isIOSStandalone = (() => {
     try {
       const ua = navigator.userAgent || "";
@@ -155,33 +149,62 @@ function AccountPage({ onBack }) {
     }
   })();
 
-  const handleEnableNotifications = async () => {
-    setNotifPending(true);
+  const refreshNotifStatus = useCallback(async () => {
     try {
-      const { requestPermission } = await import("../services/notificationService");
-      const result = await requestPermission();
-      setNotifPerm(result);
+      const { getStatus } = await import("../services/notificationService");
+      setNotifStatus(await getStatus());
     } catch {
-      // ignore
-    } finally {
-      setNotifPending(false);
+      setNotifStatus({ permission: "unsupported", supported: false, canPush: false, enabled: true, subscribed: false });
     }
-  };
-
-  const refreshNotifPerm = () => {
-    try {
-      if (typeof Notification === "undefined") return setNotifPerm("unsupported");
-      setNotifPerm(Notification.permission);
-    } catch {
-      setNotifPerm("unsupported");
-    }
-  };
-
-  useEffect(() => {
-    const onFocus = () => refreshNotifPerm();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+  const handleEnableNotifications = async () => {
+    setNotifBusy(true);
+    setNotifMsg("");
+    try {
+      const svc = await import("../services/notificationService");
+      const result = await svc.requestPermission();
+      if (result === "granted") {
+        svc.setEnabled(true);
+        await svc.subscribePush();
+      }
+      setNotifMsg(result === "denied" ? "Notifications are blocked in your browser settings." : "");
+      await refreshNotifStatus();
+    } catch {
+      setNotifMsg("Could not enable notifications.");
+    } finally {
+      setNotifBusy(false);
+    }
+  };
+
+  const handleDisableNotifications = async () => {
+    setNotifBusy(true);
+    setNotifMsg("");
+    try {
+      const svc = await import("../services/notificationService");
+      svc.setEnabled(false);
+      await svc.unsubscribePush();
+      await refreshNotifStatus();
+    } catch {
+      setNotifMsg("Could not disable notifications.");
+    } finally {
+      setNotifBusy(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setNotifBusy(true);
+    setNotifMsg("");
+    try {
+      const svc = await import("../services/notificationService");
+      await svc.sendTestNotification();
+      setNotifMsg("Test notification sent.");
+    } catch {
+      setNotifMsg("Could not send a test notification.");
+    } finally {
+      setNotifBusy(false);
+    }
+  };
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -204,6 +227,13 @@ function AccountPage({ onBack }) {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  useEffect(() => {
+    refreshNotifStatus();
+    const onFocus = () => refreshNotifStatus();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshNotifStatus]);
 
   useEffect(() => {
     const last = syncService.getLastSyncedAt();
@@ -523,42 +553,75 @@ function AccountPage({ onBack }) {
                 <p className="text-white text-sm font-medium">Theme</p>
                 <p className="text-zinc-500 text-xs">Dark</p>
               </div>
-              <div className="flex items-center justify-between">
-                <p className="text-white text-sm font-medium">Notifications</p>
-                {notifPerm === "granted" ? (
-                  <p className="text-zinc-500 text-xs">Enabled</p>
-                ) : notifPerm === "denied" ? (
-                  <p className="text-zinc-500 text-xs">Blocked in browser settings</p>
-                ) : notifPerm === "default" ? (
-                  <button
-                    onClick={handleEnableNotifications}
-                    disabled={notifPending}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {notifPending ? "Requesting..." : "Enable"}
-                  </button>
-                ) : (
-                  <p className="text-zinc-500 text-xs">Unavailable on this device</p>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-white text-sm font-medium">Notifications</p>
+                  {(() => {
+                    const perm = notifStatus?.permission || "default";
+                    if (perm === "unsupported") return <span className="text-zinc-500 text-xs">Unavailable on this device</span>;
+                    if (perm === "denied") return <span className="text-[10px] bg-red-500/15 text-red-400 px-2 py-0.5 rounded-full font-medium">Blocked</span>;
+                    if (perm === "granted" && notifStatus?.enabled) return <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-medium">On</span>;
+                    if (perm === "granted") return <span className="text-[10px] bg-zinc-700/50 text-zinc-400 px-2 py-0.5 rounded-full font-medium">Off</span>;
+                    return <span className="text-[10px] bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-full font-medium">Not set</span>;
+                  })()}
+                </div>
+
+                {notifStatus?.supported && (
+                  <div className="text-xs text-zinc-500 space-y-0.5">
+                    <p>Permission: {notifStatus.permission === "granted" ? "granted" : notifStatus.permission === "denied" ? "blocked" : "not requested"}</p>
+                    {notifStatus.canPush ? (
+                      <p>Background delivery (app closed): {notifStatus.subscribed ? "active" : "inactive"}</p>
+                    ) : (
+                      <p>Background delivery: not available here (foreground reminders only)</p>
+                    )}
+                  </div>
+                )}
+
+                {notifStatus?.supported && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {notifStatus.permission === "default" && (
+                      <button onClick={handleEnableNotifications} disabled={notifBusy} className="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50">
+                        {notifBusy ? "Requesting..." : "Enable notifications"}
+                      </button>
+                    )}
+                    {notifStatus.permission === "granted" && notifStatus.enabled && (
+                      <>
+                        <button onClick={handleTestNotification} disabled={notifBusy} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-medium px-3 py-1.5 rounded-lg transition-all disabled:opacity-50">
+                          Send test
+                        </button>
+                        <button onClick={handleDisableNotifications} disabled={notifBusy} className="bg-zinc-800/60 hover:bg-zinc-700/60 text-zinc-300 text-xs font-medium px-3 py-1.5 rounded-lg transition-all disabled:opacity-50">
+                          Turn off
+                        </button>
+                      </>
+                    )}
+                    {notifStatus.permission === "granted" && !notifStatus.enabled && (
+                      <button onClick={handleEnableNotifications} disabled={notifBusy} className="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50">
+                        {notifBusy ? "Enabling..." : "Turn on"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {notifMsg && <p className="text-xs text-zinc-400">{notifMsg}</p>}
+
+                {notifStatus?.permission === "granted" && isIOSStandalone && (
+                  <p className="text-zinc-600 text-xs leading-relaxed">
+                    While the app runs you will see lesson reminders. iOS delivers background push only when the app is installed to the Home Screen.
+                  </p>
+                )}
+                {notifStatus?.permission === "denied" && (
+                  <p className="text-zinc-600 text-xs leading-relaxed">
+                    Notifications are blocked in this browser. Allow them via your device/browser
+                    notification settings, then return to this page.
+                  </p>
+                )}
+                {notifStatus?.permission === "granted" && !isIOSStandalone && !isAndroidStandalone && notifStatus?.canPush && (
+                  <p className="text-zinc-600 text-xs leading-relaxed">
+                    On Android, installing this app to your Home Screen delivers reminders with
+                    system sound/vibration even when the app is closed.
+                  </p>
                 )}
               </div>
-              {(notifPerm === "default" || notifPerm === "granted") && isIOSStandalone && (
-                <p className="text-zinc-600 text-xs leading-relaxed">
-                  To enable: install this app to your Home Screen, then tap Enable above.
-                  While it runs you will also see in-app lesson reminders.
-                </p>
-              )}
-              {notifPerm === "denied" && (
-                <p className="text-zinc-600 text-xs leading-relaxed">
-                  Notifications are blocked in this browser. Allow them via your device/browser
-                  notification settings, then refresh this page.
-                </p>
-              )}
-              {notifPerm === "granted" && !isIOSStandalone && !isAndroidStandalone && (
-                <p className="text-zinc-600 text-xs leading-relaxed">
-                  Enabled. Installing on Android after allowing turns this into sound/vibration
-                  reminders that also arrive when the app is closed.
-                </p>
-              )}
               <div className="flex items-center justify-between">
                 <p className="text-white text-sm font-medium">Language</p>
                 <p className="text-zinc-500 text-xs">English</p>

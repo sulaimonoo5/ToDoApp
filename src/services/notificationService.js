@@ -14,6 +14,7 @@ import { getDeviceInfo } from "../utils/deviceInfo";
 
 const SCHEDULE_KEY = "scheduleData";
 const NOTIFICATIONS_LOG_KEY = "notificationsLog";
+const ENABLED_KEY = "notificationsEnabled";
 const CHECK_INTERVAL_MS = 30 * 1000;
 
 let intervalId = null;
@@ -128,7 +129,8 @@ const checkSchedule = () => {
 
   const todayDate = getTodayDateString();
   const log = getLog();
-  const nowTotal = new Date().getHours() * 60 + new Date().getMinutes();
+  const now = new Date();
+  const nowTotal = now.getHours() * 60 + now.getMinutes();
   let changed = false;
 
   for (const [lessonNumStr, lesson] of Object.entries(dayData)) {
@@ -196,6 +198,30 @@ export function getPermission() {
   return Notification.permission;
 }
 
+// User-controlled on/off switch (independent of the OS permission). When off,
+// no reminders are scheduled locally and no push subscription is maintained.
+export function isEnabled() {
+  try {
+    const value = localStorage.getItem(ENABLED_KEY);
+    return value === null ? true : value === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function setEnabled(enabled) {
+  try {
+    localStorage.setItem(ENABLED_KEY, enabled ? "true" : "false");
+  } catch {
+    // ignore
+  }
+  if (enabled) {
+    start();
+  } else {
+    stop();
+  }
+}
+
 // Must be called from a user gesture (permission prompt).
 export async function requestPermission() {
   if (typeof Notification === "undefined") return "unsupported";
@@ -237,6 +263,7 @@ async function persistSubscription(sub) {
       endpoint: sub.endpoint,
       keys: { p256dh: keys.p256dh, auth: keys.auth },
       deviceLabel: label,
+      timezone: di.timezone,
     });
   } catch {
     // non-fatal (user may be offline / server unreachable)
@@ -298,6 +325,10 @@ export async function syncSession() {
     await unsubscribePush();
     return;
   }
+  if (!isEnabled()) {
+    await unsubscribePush();
+    return;
+  }
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     await subscribePush();
   }
@@ -305,8 +336,44 @@ export async function syncSession() {
 
 // ---- Public lifecycle ----
 
+// Snapshot of the current notification capability/state for UI.
+export async function getStatus() {
+  const permission = getPermission();
+  let subscribed = false;
+  try {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
+      ]);
+      if (reg && reg.pushManager) {
+        const sub = await reg.pushManager.getSubscription();
+        subscribed = Boolean(sub);
+      }
+    }
+  } catch {
+    // pushManager unavailable (Electron, iOS) — not an error
+  }
+  return {
+    permission,
+    supported: permission !== "unsupported",
+    canPush: typeof window !== "undefined" && "PushManager" in window && "serviceWorker" in navigator,
+    enabled: isEnabled(),
+    subscribed,
+  };
+}
+
+// Deliver a real system notification immediately (user-initiated diagnostic).
+export async function sendTestNotification() {
+  const title = "To-Do App";
+  const body = "Test notification — reminders will appear like this.";
+  await showSystemNotification(title, body, `test_${Date.now()}`);
+  return true;
+}
+
 export function start() {
   if (intervalId !== null) return;
+  if (!isEnabled()) return;
 
   cleanupOldEntries();
   checkSchedule();

@@ -3,6 +3,8 @@ const path = require('path')
 
 const isDev = process.env.NODE_ENV === 'development'
 
+let mainWindow = null
+
 // ----- Меню без Reload/Force Reload в production -----
 function createMenu() {
   if (isDev) return // в dev оставляем стандартное меню (Reload, DevTools)
@@ -66,7 +68,7 @@ function createMenu() {
 }
 
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 600,
     height: 700,
     minWidth: 400,
@@ -110,28 +112,24 @@ function createWindow() {
 }
 
 // ----- IPC: Notification System -----
+// Uses the OS notification with its default system sound (no `silent` flag).
 ipcMain.on('show-notification', (event, data) => {
   try {
     const notification = new Notification({
       title: data.title || 'Notification',
       body: data.body || '',
-      silent: true,
+    })
+    notification.on('click', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.show()
+        mainWindow.focus()
+      }
     })
     notification.show()
   } catch (err) {
     console.error('Notification error:', err)
   }
-})
-
-// ----- IPC: Notification Sound (stub — ready for audio file) -----
-ipcMain.on('play-notification-sound', () => {
-  // TODO: Play sound file when audio asset is provided
-  // Example:
-  // const soundPath = path.join(__dirname, '../public/sounds/notification.mp3')
-  // if (require('fs').existsSync(soundPath)) {
-  //   const player = new (require('sound-play'))(soundPath, 0.5)
-  //   player.play()
-  // }
 })
 
 app.whenReady().then(() => {

@@ -88,10 +88,10 @@ export async function patch(type, payload) {
   });
 }
 
-export function pushSubscribe({ endpoint, keys, deviceLabel }) {
+export function pushSubscribe({ endpoint, keys, deviceLabel, timezone }) {
   return request("/api/push/subscribe", {
     method: "POST",
-    body: JSON.stringify({ endpoint, keys, deviceLabel }),
+    body: JSON.stringify({ endpoint, keys, deviceLabel, timezone }),
   });
 }
 

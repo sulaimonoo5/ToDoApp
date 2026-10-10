@@ -10,7 +10,7 @@ const authRoutes = require("./routes/auth");
 const dataRoutes = require("./routes/data");
 const syncRoutes = require("./routes/sync");
 const pushRoutes = require("./routes/push");
-const { runReminderScan, startScheduler } = require("./reminderScheduler");
+const { runReminderScan, startScheduler, cleanupOldPushLog } = require("./reminderScheduler");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -180,6 +180,13 @@ async function initDB() {
       );
     `);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_password_change TIMESTAMP DEFAULT NOW()`);
+    // IANA timezone of the user's device (e.g. "Asia/Tokyo"); drives the
+    // server-side reminder scheduler. Added via migration for existing DBs.
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+       CREATE INDEX IF NOT EXISTS idx_schedule_entries_reminder ON schedule_entries(reminder);`
+    );
     console.log("Database tables ready");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -298,4 +305,11 @@ initDB().then(() => {
   if (Number.isFinite(scanInterval) && scanInterval > 0) {
     startScheduler(pool, scanInterval);
   }
+
+  // Keep the dedup log bounded; run once at startup and every 6h.
+  const runCleanup = () =>
+    cleanupOldPushLog(pool).catch((err) => console.error("[cleanup] push log:", err.message));
+  runCleanup();
+  const cleanupTimer = setInterval(runCleanup, 6 * 60 * 60 * 1000);
+  cleanupTimer.unref && cleanupTimer.unref();
 });

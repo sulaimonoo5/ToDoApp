@@ -34,11 +34,20 @@ export function detectOS() {
   return "Unknown";
 }
 
+export function getTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+}
+
 export function getDeviceInfo() {
   return {
     deviceType: detectDeviceType(),
     browser: detectBrowser(),
     os: detectOS(),
+    timezone: getTimeZone(),
   };
 }
 

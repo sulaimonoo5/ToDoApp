@@ -4,6 +4,7 @@ const {
   getPublicKey,
   validateSubscription,
 } = require("../webpush");
+const { isValidTimeZone } = require("../timezone");
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.get("/publicKey", (req, res) => {
 // Endpoint is the unique key: one subscription row per device.
 router.post("/subscribe", authMiddleware, async (req, res) => {
   try {
-    const { endpoint, keys, deviceLabel } = req.body;
+    const { endpoint, keys, deviceLabel, timezone } = req.body;
     if (!validateSubscription({ endpoint, keys })) {
       return res.status(400).json({ error: "Invalid push subscription" });
     }
@@ -35,6 +36,12 @@ router.post("/subscribe", authMiddleware, async (req, res) => {
        RETURNING id`,
       [req.userId, endpoint, keys.p256dh, keys.auth, label]
     );
+
+    // Keep the user's reminder timezone in sync with the device that is being
+    // subscribed (covers users who granted permission after an older login).
+    if (isValidTimeZone(timezone)) {
+      await req.pool.query("UPDATE users SET timezone = $1, updated_at = NOW() WHERE id = $2", [timezone, req.userId]);
+    }
 
     res.json({ ok: true, id: result.rows[0].id });
   } catch (err) {

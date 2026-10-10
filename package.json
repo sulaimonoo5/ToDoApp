@@ -11,7 +11,8 @@
     "electron:dev": "NODE_ENV=development electron .",
     "app": "npm run build && electron .",
     "app:dev": "vite & sleep 2 && NODE_ENV=development electron .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

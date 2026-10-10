@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { authMiddleware, JWT_SECRET } = require("../middleware/auth");
 const { createAttemptLimiter } = require("../middleware/rateLimit");
+const { isValidTimeZone } = require("../timezone");
 
 const router = express.Router();
 
@@ -42,6 +43,14 @@ async function recordLoginHistory(pool, userId, deviceInfo, ip) {
   );
 }
 
+// Remember the device's IANA timezone so the server-side reminder scheduler
+// fires at the user's local wall-clock time. Last active device wins.
+async function applyTimezone(pool, userId, deviceInfo) {
+  const tz = deviceInfo?.timezone;
+  if (!isValidTimeZone(tz)) return;
+  await pool.query("UPDATE users SET timezone = $1, updated_at = NOW() WHERE id = $2", [tz, userId]);
+}
+
 router.post("/register", registerLimiter.guard, async (req, res) => {
   try {
     registerLimiter.record(req);
@@ -70,6 +79,7 @@ router.post("/register", registerLimiter.guard, async (req, res) => {
     const token = createToken(user.id);
     const sessionId = await createSession(req.pool, user.id, deviceInfo, req.ip);
     await recordLoginHistory(req.pool, user.id, deviceInfo, req.ip);
+    await applyTimezone(req.pool, user.id, deviceInfo);
 
     res.status(201).json({ user, token, sessionId });
   } catch (err) {
@@ -102,6 +112,7 @@ router.post("/login", loginLimiter.guard, async (req, res) => {
     const token = createToken(user.id);
     const sessionId = await createSession(req.pool, user.id, deviceInfo, req.ip);
     await recordLoginHistory(req.pool, user.id, deviceInfo, req.ip);
+    await applyTimezone(req.pool, user.id, deviceInfo);
 
     res.json({
       user: { id: user.id, name: user.name, email: user.email, created_at: user.created_at, last_password_change: user.last_password_change },
